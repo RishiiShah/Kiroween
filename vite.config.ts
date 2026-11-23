@@ -1,0 +1,22 @@
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // Libraries ship React Server Component "use client" markers; they are irrelevant for this SPA.
+        if (warning.code === "MODULE_LEVEL_DIRECTIVE") return;
+        warn(warning);
+      },
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (/[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
+          if (/[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) return "motion";
+          if (/[\\/](cmdk|@radix-ui)[\\/]/.test(id)) return "palette";
+          if (/[\\/]lucide-react[\\/]/.test(id)) return "icons";
+        },
+      },
+    },
+  },
+});

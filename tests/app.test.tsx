@@ -659,4 +659,56 @@ describe("explorer interactions", () => {
     await mountRaw();
     expect(container.querySelector(".app.theme-halloween")).toBeTruthy();
   });
+
+  it("opens the command palette with Ctrl+K and runs commands", async () => {
+    Element.prototype.scrollIntoView ??= function () {};
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    await mountRaw();
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+    });
+    expect(document.querySelector(".palette")).toBeTruthy();
+    const items = [...document.querySelectorAll<HTMLElement>("[cmdk-item]")];
+    expect(items.filter((item) => demo.findings.some((f) => item.textContent?.includes(f.title))).length).toBe(
+      demo.findings.length,
+    );
+    const table = items.find((item) => item.textContent?.includes("Analyst table"))!;
+    await act(async () => table.click());
+    expect(document.querySelector(".palette")).toBeNull();
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(demo.findings.length);
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+    });
+    const finding = demo.findings[0];
+    const open = [...document.querySelectorAll<HTMLElement>("[cmdk-item]")].find((item) =>
+      item.textContent?.includes(finding.title),
+    )!;
+    await act(async () => open.click());
+    expect(container.querySelector(".source-button")?.getAttribute("href")).toBe(finding.source);
+  });
+
+  it("steps through visible findings with J and K, but not while typing", async () => {
+    await mount();
+    const press = (key: string, target: EventTarget = document) =>
+      act(async () => {
+        target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+      });
+    await press("j");
+    const nav = () => container.querySelector('[aria-label="Trace navigation"]')?.textContent;
+    expect(nav()).toContain(`Trace 1 of ${demo.findings.length}`);
+    await press("j");
+    expect(nav()).toContain("Trace 2 of");
+    await press("k");
+    expect(nav()).toContain("Trace 1 of");
+    const search = container.querySelector<HTMLInputElement>('[aria-label="Filter findings"]')!;
+    await press("j", search);
+    expect(nav()).toContain("Trace 1 of");
+  });
 });

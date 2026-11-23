@@ -24,101 +24,12 @@ import {
   type Zone,
 } from "./scan";
 import "./style.css";
+import { Icon, Kbd, isMac } from "./ui";
+import { MotionConfig, motion } from "motion/react";
+import { CommandPalette, type PaletteGroup } from "./CommandPalette";
 import { useSoundscape } from "./useSoundscape";
 import { parseReport, reportReviews, reviewKey, useReviews } from "./reviews";
 import { compareSnapshots, type Comparison } from "./compare";
-function Icon({ name, size = 20 }: { name: string; size?: number }) {
-  const paths: Record<string, React.ReactNode> = {
-    ghost: (
-      <>
-        <path d="M5 21V10a7 7 0 0 1 14 0v11l-3-2-4 2-4-2-3 2Z" />
-        <path d="M9 10v2m6-2v2" />
-      </>
-    ),
-    branch: (
-      <>
-        <circle cx="6" cy="5" r="2" />
-        <circle cx="18" cy="5" r="2" />
-        <circle cx="6" cy="19" r="2" />
-        <path d="M6 7v10m12-10v2a6 6 0 0 1-6 6H6" />
-      </>
-    ),
-    pulse: <path d="M2 12h5l3-8 4 16 3-8h5" />,
-    search: (
-      <>
-        <circle cx="10" cy="10" r="6" />
-        <path d="m15 15 6 6" />
-      </>
-    ),
-    link: (
-      <>
-        <path d="M14 3h7v7m0-7L10 14" />
-        <path d="M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
-      </>
-    ),
-    sun: (
-      <>
-        <circle cx="12" cy="12" r="4" />
-        <path d="M12 1v2m0 18v2M1 12h2m18 0h2M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2" />
-      </>
-    ),
-    check: <path d="m5 12 4 4L20 5" />,
-    sound: (
-      <>
-        <path d="m11 4-6 5H2v6h3l6 5Z" />
-        <path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" />
-      </>
-    ),
-    home: <path d="M3 11 12 4l9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z" />,
-    issue: (
-      <>
-        <circle cx="12" cy="12" r="8" />
-        <circle cx="12" cy="12" r="1.5" />
-      </>
-    ),
-    board: (
-      <>
-        <rect x="3" y="4" width="5" height="16" rx="1" />
-        <rect x="10" y="4" width="5" height="11" rx="1" />
-        <rect x="17" y="4" width="4" height="7" rx="1" />
-      </>
-    ),
-    table: (
-      <>
-        <rect x="3" y="4" width="18" height="16" rx="1" />
-        <path d="M3 10h18M3 15h18M9 10v10" />
-      </>
-    ),
-    report: <path d="M6 3h9l4 4v14H6Z M14 3v5h5 M9 13h7M9 17h5" />,
-    gear: (
-      <>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2m10-10 2-2" />
-      </>
-    ),
-    close: <path d="M6 6l12 12M18 6 6 18" />,
-    motion: (
-      <>
-        <path d="M3 7h11a3 3 0 1 0-3-3M3 12h16M3 17h9a3 3 0 1 1-3 3" />
-      </>
-    ),
-  };
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {paths[name] || paths.ghost}
-    </svg>
-  );
-}
 const CACHE = "poltergeist.snapshot.v1";
 const date = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
@@ -144,6 +55,9 @@ export function App() {
   const [sort, setSort] = useState("review");
   const [selected, setSelected] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeId>(loadTheme);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const appRef = useRef<HTMLDivElement>(null);
+  const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const prefersDark = useSyncExternalStore(
     subscribeScheme,
     getPrefersDark,
@@ -221,14 +135,13 @@ export function App() {
     };
   }, []);
   useEffect(() => {
-    if (!selected) return;
-    evidence.current?.focus({ preventScroll: true });
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setSelected(null);
-    };
+    if (selected) evidence.current?.focus({ preventScroll: true });
+  }, [selected]);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => keyHandler.current(event);
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [selected]);
+  }, []);
 
   async function scan(event: React.FormEvent) {
     event.preventDefault();
@@ -434,8 +347,116 @@ export function App() {
   };
   const [owner, repoName] = snapshot ? snapshot.repository.split("/") : ["", ""];
 
+  keyHandler.current = (event: KeyboardEvent) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      setPaletteOpen((open) => !open);
+      return;
+    }
+    if (paletteOpen || event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    const typing =
+      !!target &&
+      (target.isContentEditable ||
+        ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+    if (event.key === "Escape" && selected) {
+      setSelected(null);
+      return;
+    }
+    if (typing || !snapshot || !findings.length) return;
+    if (event.key === "j" || event.key === "k") {
+      const step = event.key === "j" ? 1 : -1;
+      const next =
+        activeIndex < 0
+          ? step > 0
+            ? 0
+            : findings.length - 1
+          : Math.min(findings.length - 1, Math.max(0, activeIndex + step));
+      event.preventDefault();
+      selectTrace(findings[next].id);
+    }
+  };
+
+  const paletteGroups: PaletteGroup[] = [
+    {
+      heading: "Go to",
+      items: snapshot
+        ? [
+            { id: "go-overview", label: "Overview", icon: "home", onSelect: () => go("overview") },
+            { id: "go-issues", label: "Issues & PRs", icon: "issue", onSelect: () => go("issues") },
+            { id: "go-findings", label: "All findings", icon: "board", onSelect: () => go("map") },
+            ...ZONES.map((item) => ({
+              id: `go-${item.id}`,
+              label: item.name,
+              hint: item.subtitle,
+              icon: item.icon,
+              onSelect: () => go("map", item.id),
+            })),
+            { id: "go-table", label: "Analyst table", icon: "table", onSelect: () => go("table") },
+          ]
+        : [],
+    },
+    {
+      heading: "Findings",
+      items: (snapshot?.findings ?? []).map((finding) => ({
+        id: `finding-${finding.id}`,
+        label: finding.title,
+        hint: finding.path,
+        icon: finding.severity === "review" ? "alert" : "activity",
+        keywords: [finding.path, finding.zone, finding.severity],
+        onSelect: () => selectTrace(finding.id),
+      })),
+    },
+    {
+      heading: "Actions",
+      items: [
+        { id: "act-demo", label: "Explore the demo", icon: "sparkles", disabled: busy, onSelect: loadDemo },
+        { id: "act-scan", label: "Scan another repository", icon: "search", onSelect: () => document.getElementById("repo-url")?.focus() },
+        ...(snapshot
+          ? [
+              { id: "act-issues", label: "Load open issues and pull requests", hint: "1 request", icon: "pull", onSelect: () => { go("issues"); void community.loadIssues(); } },
+              { id: "act-details", label: "Load languages, contributors and release", hint: "3 requests", icon: "users", onSelect: () => { go("overview"); void community.loadDetails(); } },
+              { id: "act-md", label: "Copy Markdown summary", icon: "copy", onSelect: () => void copyMarkdown() },
+              { id: "act-export", label: "Export report", icon: "download", onSelect: download },
+              { id: "act-compare", label: "Compare with a saved snapshot", icon: "compare", disabled: busy, onSelect: () => chooseReport("compare") },
+              { id: "act-print", label: "Print full report", icon: "print", onSelect: () => window.print() },
+            ]
+          : []),
+        { id: "act-import", label: "Import report", icon: "upload", disabled: busy, onSelect: () => chooseReport("import") },
+      ],
+    },
+    {
+      heading: "Theme",
+      items: THEMES.map((item) => ({
+        id: `theme-${item.id}`,
+        label: `${item.label} theme`,
+        hint: theme === item.id ? "current" : item.note,
+        icon: "palette",
+        onSelect: () => setTheme(item.id),
+      })),
+    },
+    {
+      heading: "Preferences",
+      items: [
+        { id: "pref-motion", label: motionPaused ? "Restore motion" : "Reduce motion", icon: "motion", onSelect: () => setMotionPaused(!motionPaused) },
+        { id: "pref-sound", label: sound.enabled ? "Mute ambience" : "Enable ambience", icon: sound.enabled ? "mute" : "sound", disabled: sound.pending, onSelect: sound.toggle },
+      ],
+    },
+  ];
+  const activePill = (on: boolean) =>
+    on ? (
+      <motion.span
+        layoutId="nav-active"
+        className="nav-active"
+        aria-hidden="true"
+        transition={{ type: "spring", stiffness: 520, damping: 40 }}
+      />
+    ) : null;
+
   return (
+    <MotionConfig reducedMotion={motionPaused ? "always" : "user"}>
     <div
+      ref={appRef}
       className={`app theme-${resolvedTheme} ${isDarkTheme(resolvedTheme) ? "is-dark" : ""} ${motionPaused ? "motion-paused" : ""} ${snapshot && active ? "has-inspector" : ""}`}
     >
       <a className="skip-link" href="#explorer">
@@ -450,6 +471,16 @@ export function App() {
           <span className="brand-name">Poltergeist</span>
           <span className="brand-sub">commits</span>
         </a>
+        <button
+          type="button"
+          className="palette-trigger"
+          onClick={() => setPaletteOpen(true)}
+          aria-keyshortcuts="Meta+K Control+K"
+        >
+          <Icon name="command" size={15} />
+          <span>Search or jump to…</span>
+          <Kbd>{isMac() ? "⌘K" : "Ctrl K"}</Kbd>
+        </button>
 
         <form
           className="scan"
@@ -474,6 +505,7 @@ export function App() {
           />
           <div className="scan-actions">
             <button className="btn btn-primary" disabled={busy}>
+              <Icon name={busy ? "loader" : "search"} size={15} className={busy ? "spin" : ""} />
               {busy ? "Investigating…" : "Investigate"}
             </button>
             <button
@@ -482,12 +514,13 @@ export function App() {
               disabled={busy}
               className="btn btn-plain"
             >
+              <Icon name="sparkles" size={15} />
               Explore the demo
             </button>
           </div>
           {busy && (
             <p className="scan-progress">
-              <span className="spinner" aria-hidden="true" />
+              <Icon name="loader" size={14} className="spin" />
               <span>{progress}</span>
               <button
                 type="button"
@@ -508,6 +541,7 @@ export function App() {
               aria-current={view === "overview" ? "page" : undefined}
               onClick={() => go("overview")}
             >
+              {activePill(view === "overview")}
               <Icon name="home" size={16} />
               Overview
             </button>
@@ -517,6 +551,7 @@ export function App() {
               onClick={() => go("issues")}
               data-count={community.issues.data?.items.length ?? undefined}
             >
+              {activePill(view === "issues")}
               <Icon name="issue" size={16} />
               Issues & PRs
             </button>
@@ -527,6 +562,7 @@ export function App() {
               onClick={() => go("map")}
               data-count={snapshot.findings.length}
             >
+              {activePill(view === "map" && zone === "all")}
               <Icon name="board" size={16} />
               Findings
             </button>
@@ -538,7 +574,8 @@ export function App() {
                 onClick={() => go("map", item.id)}
                 data-count={zoneTotal(item.id)}
               >
-                <span className="zone-dot" aria-hidden="true" />
+                {activePill(view === "map" && zone === item.id)}
+                <Icon name={item.icon} size={15} className="zone-icon" />
                 {item.name}
               </button>
             ))}
@@ -547,6 +584,7 @@ export function App() {
               aria-current={view === "table" ? "page" : undefined}
               onClick={() => go("table")}
             >
+              {activePill(view === "table")}
               <Icon name="table" size={16} />
               Analyst table
             </button>
@@ -586,6 +624,7 @@ export function App() {
                   onClick={() => chooseReport("import")}
                   disabled={busy}
                 >
+                  <Icon name="upload" size={15} />
                   Import report
                 </button>
                 <button
@@ -593,6 +632,7 @@ export function App() {
                   onClick={download}
                   disabled={!snapshot}
                 >
+                  <Icon name="download" size={15} />
                   Export report
                 </button>
                 <button
@@ -600,6 +640,7 @@ export function App() {
                   onClick={() => chooseReport("compare")}
                   disabled={!snapshot || busy}
                 >
+                  <Icon name="compare" size={15} />
                   Compare snapshot
                 </button>
                 <button
@@ -607,6 +648,7 @@ export function App() {
                   onClick={copyMarkdown}
                   disabled={!snapshot}
                 >
+                  <Icon name="copy" size={15} />
                   Copy Markdown summary
                 </button>
                 <button
@@ -614,6 +656,7 @@ export function App() {
                   onClick={() => window.print()}
                   disabled={!snapshot}
                 >
+                  <Icon name="print" size={15} />
                   Print full report
                 </button>
                 <p className="menu-note">
@@ -671,7 +714,7 @@ export function App() {
                   aria-pressed={sound.enabled}
                   disabled={sound.pending}
                 >
-                  <Icon name="sound" size={15} />
+                  <Icon name={sound.enabled ? "mute" : "sound"} size={15} />
                   {sound.enabled ? "Mute ambience" : "Enable ambience"}
                 </button>
                 {sound.enabled && (
@@ -692,6 +735,7 @@ export function App() {
                 )}
                 <p className="menu-heading">Data</p>
                 <button className="menu-item danger" onClick={clearCache}>
+                  <Icon name="trash" size={15} />
                   Clear saved scan
                 </button>
                 <p className="menu-note">
@@ -908,7 +952,13 @@ export function App() {
               </section>
             )}
 
-            <div className="view-body">
+            <motion.div
+              className="view-body"
+              key={`${view}-${zone}`}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            >
               {view === "issues" ? (
                 <Issues
                   repository={snapshot.repository}
@@ -942,7 +992,9 @@ export function App() {
                       aria-label={item.name}
                     >
                       <header className="lane-head">
-                        <span className="zone-dot" aria-hidden="true" />
+                        <span className="lane-icon" aria-hidden="true">
+                          <Icon name={item.icon} size={15} />
+                        </span>
                         <h3>{item.name}</h3>
                         <span className="lane-count">
                           {findings.filter((finding) => finding.zone === item.id).length}
@@ -952,9 +1004,19 @@ export function App() {
                       <div className="lane-cards">
                         {findings
                           .filter((finding) => finding.zone === item.id)
-                          .map((finding) => (
-                            <button
+                          .map((finding, index) => (
+                            <motion.button
                               key={finding.id}
+                              layout="position"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{
+                                delay: Math.min(index, 10) * 0.035,
+                                duration: 0.28,
+                                ease: [0.16, 1, 0.3, 1],
+                              }}
+                              whileHover={{ y: -2 }}
+                              whileTap={{ scale: 0.985 }}
                               className={`trace ${finding.severity} ${selected === finding.id ? "selected" : ""}`}
                               onClick={() => selectTrace(finding.id)}
                               aria-pressed={selected === finding.id}
@@ -974,10 +1036,13 @@ export function App() {
                               </span>
                               <strong className="trace-title">{finding.title}</strong>
                               <span className="trace-path">{finding.path}</span>
-                              <span className="trace-conf">
-                                {finding.confidence} confidence
+                              <span className="trace-foot">
+                                <span className="trace-conf">
+                                  {finding.confidence} confidence
+                                </span>
+                                <Icon name="next" size={14} className="trace-go" />
                               </span>
-                            </button>
+                            </motion.button>
                           ))}
                       </div>
                     </section>
@@ -1038,18 +1103,22 @@ export function App() {
                   </button>
                 </div>
               )}
-            </div>
+            </motion.div>
           </>
         ) : (
           <section className="landing" aria-labelledby="landing-title">
-            <p className="eyebrow">Kiroween repository field guide</p>
+            <p className="eyebrow">
+              <Icon name="ghost" size={13} /> Kiroween repository field guide
+            </p>
             <h1 id="landing-title">
               Find your repository’s <em>ghosts</em>.
             </h1>
             <p className="lede">
-              Paste a public GitHub repository in the sidebar. Poltergeist reads
-              a bounded sample in your browser and links every finding to its
-              source.
+              Every codebase has rooms nobody visits: branches gone quiet, TODOs
+              left behind, issues that went cold. Paste a public GitHub
+              repository in the sidebar and Poltergeist walks the house for you,
+              right in your browser, linking every finding to the exact line or
+              commit it came from.
             </p>
             <ol className="steps">
               <li>
@@ -1066,7 +1135,8 @@ export function App() {
               </li>
             </ol>
             <p className="lede-small">
-              Or import a saved report from the Report menu.
+              Press <Kbd>{isMac() ? "⌘K" : "Ctrl K"}</Kbd> anytime to jump
+              anywhere, or import a saved report from the Report menu.
             </p>
           </section>
         )}
@@ -1159,8 +1229,11 @@ export function App() {
       </main>
 
       {snapshot && active && (
-        <aside
+        <motion.aside
           ref={evidence}
+          initial={{ opacity: 0, x: 28 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ type: "spring", stiffness: 420, damping: 38 }}
           className="inspector"
           aria-labelledby="evidence-title"
           tabIndex={-1}
@@ -1179,7 +1252,13 @@ export function App() {
               <span className="sr-only">Close evidence</span>
             </button>
           </header>
-          <div key={active.id} className="evidence-detail">
+          <motion.div
+            key={active.id}
+            className="evidence-detail"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
             <div className="trace-tags">
               <span className={`tag tag-${active.severity}`}>
                 {active.severity === "review" ? "Needs review" : "Observed activity"}
@@ -1218,7 +1297,7 @@ export function App() {
               Source pinned to the inspected revision. Review notes apply to this
               evidence version.
             </p>
-          </div>
+          </motion.div>
           <details className="review-notes">
             <summary>
               Review & notes{activeReview.reviewed ? " · reviewed" : ""}
@@ -1255,6 +1334,7 @@ export function App() {
               disabled={activeIndex <= 0}
               onClick={() => selectTrace(findings[activeIndex - 1].id)}
             >
+              <Icon name="prev" size={14} />
               Previous trace
             </button>
             <span>
@@ -1268,18 +1348,36 @@ export function App() {
               onClick={() => selectTrace(findings[activeIndex + 1].id)}
             >
               Next trace
+              <Icon name="next" size={14} />
             </button>
           </nav>
-        </aside>
+        </motion.aside>
       )}
 
       <div className="toast-stack">
       <div className="toasts" role="status" aria-live="polite">
-        {notice && <p className="toast">{notice}</p>}
+        {notice && (
+          <motion.p
+            key={notice}
+            className="toast"
+            initial={{ opacity: 0, y: 14, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+          >
+            <Icon name="ghost" size={15} />
+            {notice}
+          </motion.p>
+        )}
         {sound.error && <p className="toast">{sound.error}</p>}
       </div>
       {error && (
-        <div className="toast toast-error" role="alert">
+        <motion.div
+          key={error}
+          className="toast toast-error"
+          role="alert"
+          initial={{ opacity: 0, y: 14, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+        >
+          <Icon name="alert" size={15} />
           <span>{error}</span>
           <button onClick={loadDemo} disabled={busy} className="link-btn">
             Use demo
@@ -1287,10 +1385,17 @@ export function App() {
           <button onClick={() => setError("")} className="link-btn">
             Dismiss
           </button>
-        </div>
+        </motion.div>
       )}
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        groups={paletteGroups}
+        container={appRef.current}
+      />
     </div>
+    </MotionConfig>
   );
 }
 

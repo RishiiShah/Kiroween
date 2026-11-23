@@ -18,12 +18,12 @@ export const THEMES: {
   canvas: string;
   accent: string;
 }[] = [
-  { id: "halloween", label: "Halloween", note: "Pumpkin on midnight plum", canvas: "#16111c", accent: "#ff7a1a" },
-  { id: "light", label: "Light", note: "Warm paper", canvas: "#fbfaf7", accent: "#5b3fd6" },
-  { id: "dark", label: "Dark", note: "Neutral charcoal", canvas: "#131215", accent: "#a08cf7" },
+  { id: "halloween", label: "Halloween", note: "Pumpkin, slime and ghost violet", canvas: "#100c15", accent: "#ff7a1a" },
+  { id: "light", label: "Light", note: "Warm parchment", canvas: "#faf8f4", accent: "#c2410c" },
+  { id: "dark", label: "Dark", note: "Graphite with ember", canvas: "#111113", accent: "#fb923c" },
   { id: "midnight", label: "Midnight", note: "Deep navy and cyan", canvas: "#0d1420", accent: "#4cc2ff" },
   { id: "contrast", label: "High contrast", note: "Black, white, yellow", canvas: "#000000", accent: "#ffd60a" },
-  { id: "system", label: "Match system", note: "Light or dark from your OS", canvas: "#fbfaf7", accent: "#131215" },
+  { id: "system", label: "Match system", note: "Light or dark from your OS", canvas: "#faf8f4", accent: "#111113" },
 ];
 const DARK: Record<ResolvedTheme, boolean> = {
   halloween: true,

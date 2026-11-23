@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { ago, isQuiet, QUIET_DAYS, type Issue } from "./community";
 import type { CommentList, IssueList, Loadable } from "./useCommunity";
+import { motion } from "motion/react";
+import { Icon, Skeleton } from "./ui";
 
 type Props = {
   repository: string;
@@ -54,21 +56,28 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
     return (
       <section className="load-panel" aria-label="Issues and pull requests">
         <div className="load-icon" aria-hidden="true">
-          #
+          <Icon name="pull" size={20} />
         </div>
         <div>
-          <h3>Open issues and pull requests</h3>
+          <h3>Who is knocking on the door?</h3>
           <p>
-            Reads the 30 most recently updated open items for{" "}
-            <strong>{repository}</strong>, with comment counts. Comments load per
-            item, only when you ask.
+            Load the 30 most recently updated open issues and pull requests for{" "}
+            <strong>{repository}</strong>. Spot quiet threads that went cold,
+            the most discussed items, and drafts waiting for a reviewer.
+            Comments load one thread at a time, only when you ask.
           </p>
+          {issues.status === "loading" && <Skeleton lines={4} />}
           <div className="load-actions">
             <button
               className="btn btn-primary"
               onClick={onLoad}
               disabled={issues.status === "loading"}
             >
+              <Icon
+                name={issues.status === "loading" ? "loader" : "pull"}
+                size={15}
+                className={issues.status === "loading" ? "spin" : ""}
+              />
               {issues.status === "loading" ? "Loading…" : "Load issues · 1 request"}
             </button>
             {issues.status === "error" && (
@@ -100,6 +109,7 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
         </span>
         {data?.more && <span className="muted">More exist on GitHub</span>}
         <button className="link-btn" onClick={onLoad}>
+          <Icon name="refresh" size={13} />
           Refresh · 1 request
         </button>
       </div>
@@ -139,8 +149,12 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
       {visible.length ? (
         <div className="split">
           <ul className="issue-list">
-            {visible.map((item) => (
-              <li
+            {visible.map((item, index) => (
+              <motion.li
+                layout="position"
+                initial={{ opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: Math.min(index, 12) * 0.02, duration: 0.2 }}
                 key={item.number}
                 className={`issue ${open === item.number ? "is-open" : ""}`}
               >
@@ -149,8 +163,14 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
                   aria-pressed={open === item.number}
                   onClick={() => setOpen(item.number)}
                 >
-                  <span className={`issue-kind kind-${item.kind}`}>
-                    {item.kind === "pull" ? (item.draft ? "Draft" : "PR") : "Issue"}
+                  <span className={`issue-kind kind-${item.kind} ${item.draft ? "is-draft" : ""}`}>
+                    <Icon
+                      name={item.kind === "pull" ? (item.draft ? "draft" : "pull") : "issue"}
+                      size={14}
+                    />
+                    <span className="sr-only">
+                      {item.kind === "pull" ? (item.draft ? "Draft pull request" : "Pull request") : "Issue"}
+                    </span>
                   </span>
                   <span className="issue-title">{item.title}</span>
                   <span className="issue-meta">
@@ -158,10 +178,11 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
                     {isQuiet(item, now) ? " · quiet" : ""}
                   </span>
                   <span className="issue-count" aria-label={`${item.comments} comments`}>
+                    <Icon name="message" size={12} />
                     {item.comments}
                   </span>
                 </button>
-              </li>
+              </motion.li>
             ))}
           </ul>
           <IssueDetail
@@ -196,11 +217,19 @@ function IssueDetail({
   if (!item)
     return (
       <div className="issue-detail is-empty">
-        <p>Select an item to read its description and comments.</p>
+        <Icon name="ghost" size={26} />
+        <p>Pick a thread on the left to read it here.</p>
       </div>
     );
   return (
-    <article className="issue-detail" aria-labelledby="issue-detail-title">
+    <motion.article
+      key={item.number}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className="issue-detail"
+      aria-labelledby="issue-detail-title"
+    >
       <p className="eyebrow">
         {item.kind === "pull" ? (item.draft ? "Draft pull request" : "Pull request") : "Issue"}{" "}
         #{item.number}
@@ -222,13 +251,19 @@ function IssueDetail({
       <div className="issue-actions">
         <a href={item.url} target="_blank" rel="noreferrer" className="btn btn-plain">
           Open on GitHub
+          <Icon name="link" size={14} />
         </a>
         {item.comments > 0 && (!comments || comments.status === "error") && (
           <button className="btn btn-plain" onClick={onLoadComments}>
+            <Icon name="message" size={14} />
             Load comments · 1 request
           </button>
         )}
-        {comments?.status === "loading" && <span className="muted">Loading comments…</span>}
+        {comments?.status === "loading" && (
+          <span className="muted">
+            <Icon name="loader" size={14} className="spin" /> Loading comments…
+          </span>
+        )}
       </div>
       {comments?.status === "error" && (
         <p className="inline-error" role="alert">
@@ -255,6 +290,6 @@ function IssueDetail({
           )}
         </ol>
       )}
-    </article>
+    </motion.article>
   );
 }

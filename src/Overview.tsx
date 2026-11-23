@@ -2,6 +2,9 @@ import { commitDates, summarizeActivity, zoneCounts } from "./activity";
 import { ago, type Details } from "./community";
 import type { Snapshot, Zone } from "./scan";
 import type { Loadable } from "./useCommunity";
+import { motion } from "motion/react";
+import { Icon, NumberTicker, Skeleton } from "./ui";
+import { ZONES } from "./scan";
 
 const day = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
@@ -31,11 +34,14 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
   return (
     <div className="overview">
       <p className="ov-lede">
-        <strong>{attention.length}</strong> of {snapshot.findings.length} traces
-        need review.{" "}
+        <strong>
+          <NumberTicker value={attention.length} />
+        </strong>{" "}
+        of <NumberTicker value={snapshot.findings.length} /> traces in this
+        house need a closer look.{" "}
         {activity.total > 0 && activity.latestAgeDays !== null && (
           <>
-            The latest inspected commit landed{" "}
+            The most recent footsteps, the latest inspected commit, landed{" "}
             <strong>
               {activity.latestAgeDays === 0
                 ? "the day of this scan"
@@ -44,13 +50,14 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
             .{" "}
           </>
         )}
-        {snapshot.branchesInspected} branch tips and {snapshot.sampledFiles} source
-        files were sampled.
+        We walked {snapshot.branchesInspected} side corridors and opened{" "}
+        {snapshot.sampledFiles} source files to get here.
       </p>
 
       <div className="ov-grid">
         <section className="block span-8" aria-labelledby="activity-title">
           <header className="block-head">
+            <Icon name="activity" size={15} className="block-icon" />
             <h3 id="activity-title">Commit activity</h3>
             <span className="block-note">latest {activity.total} commits</span>
           </header>
@@ -58,10 +65,16 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
             <div className="spark">
               <div className="spark-bars" aria-hidden="true">
                 {activity.buckets.map((count, index) => (
-                  <span
+                  <motion.span
                     key={index}
                     className={count ? "spark-bar" : "spark-bar is-empty"}
-                    style={{ height: `${Math.max(count ? 8 : 2, (count / peak) * 100)}%` }}
+                    style={{
+                      height: `${Math.max(count ? 8 : 2, (count / peak) * 100)}%`,
+                      originY: 1,
+                    }}
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    transition={{ delay: 0.1 + index * 0.04, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                     title={`${count} commit${count === 1 ? "" : "s"}`}
                   />
                 ))}
@@ -83,6 +96,7 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
 
         <section className="block span-4" aria-labelledby="facts-title">
           <header className="block-head">
+            <Icon name="report" size={15} className="block-icon" />
             <h3 id="facts-title">At a glance</h3>
           </header>
           <p className="facts-desc">{snapshot.description}</p>
@@ -124,6 +138,7 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
 
         <section className="block span-8" aria-labelledby="attention-title">
           <header className="block-head">
+            <Icon name="alert" size={15} className="block-icon" />
             <h3 id="attention-title">Needs attention</h3>
             <span className="block-count">{attention.length}</span>
           </header>
@@ -144,8 +159,8 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
             </ul>
           ) : (
             <p className="block-empty">
-              Nothing in the sampled data was marked for review. That does not mean
-              the repository has no problems.
+              No restless spirits in this sample. That only covers what was read; it
+              does not mean the repository has no problems.
             </p>
           )}
           {attention.length > 6 && (
@@ -159,15 +174,18 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
 
         <section className="block span-4" aria-labelledby="groups-title">
           <header className="block-head">
+            <Icon name="board" size={15} className="block-icon" />
             <h3 id="groups-title">Where findings live</h3>
           </header>
           <div className="stack-bar" aria-hidden="true">
             {zones.map((zone) =>
               zone.total ? (
-                <span
+                <motion.span
                   key={zone.id}
                   className={`z-${zone.id}`}
-                  style={{ width: `${(zone.total / total) * 100}%` }}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(zone.total / total) * 100}%` }}
+                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                 />
               ) : null,
             )}
@@ -176,8 +194,13 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
             {zones.map((zone) => (
               <li key={zone.id}>
                 <button onClick={() => onBrowse(zone.id)}>
-                  <span className={`zone-dot z-${zone.id}`} aria-hidden="true" />
-                  <span className="group-name">{zone.name}</span>
+                  <span className={`group-icon z-${zone.id}`} aria-hidden="true">
+                    <Icon name={ZONES.find((item) => item.id === zone.id)!.icon} size={14} />
+                  </span>
+                  <span className="group-name">
+                    {zone.name}
+                    <small>{zone.subtitle}</small>
+                  </span>
                   <span className="group-count">
                     {zone.total}
                     {zone.review ? <em> · {zone.review} review</em> : null}
@@ -190,6 +213,7 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
 
         <section className="block span-12" aria-labelledby="details-title">
           <header className="block-head">
+            <Icon name="users" size={15} className="block-icon" />
             <h3 id="details-title">Languages, people and releases</h3>
             {details.status === "ready" && (
               <button className="link-btn" onClick={onLoadDetails}>
@@ -197,18 +221,24 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
               </button>
             )}
           </header>
-          {details.status !== "ready" ? (
+          {details.status === "loading" ? (
+            <div className="details-loading">
+              <Skeleton lines={2} />
+              <Skeleton lines={3} />
+            </div>
+          ) : details.status !== "ready" ? (
             <div className="load-inline">
               <p>
-                Reads the language mix, top contributors, and latest release from
-                GitHub, only when you ask.
+                Who built this place and with what? Load the language mix, the
+                busiest contributors, and the latest release. Nothing is fetched
+                until you ask.
               </p>
               <button
                 className="btn btn-plain"
                 onClick={onLoadDetails}
-                disabled={details.status === "loading"}
               >
-                {details.status === "loading" ? "Loading…" : "Load details · 3 requests"}
+                <Icon name="users" size={15} />
+                Load details · 3 requests
               </button>
               {details.status === "error" && (
                 <span className="inline-error" role="alert">
@@ -224,7 +254,8 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
         {snapshot.warnings.length > 0 && (
           <section className="block span-12 block-muted" aria-labelledby="coverage-title">
             <header className="block-head">
-              <h3 id="coverage-title">Coverage notes</h3>
+              <Icon name="alert" size={15} className="block-icon" />
+            <h3 id="coverage-title">Coverage notes</h3>
             </header>
             <ul className="coverage-list">
               {snapshot.warnings.map((warning, index) => (

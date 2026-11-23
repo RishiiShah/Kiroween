@@ -45,20 +45,20 @@ export const ZONES: {
   {
     id: "activity",
     name: "The living quarters",
-    subtitle: "Recent commit activity",
+    subtitle: "Who has been moving through the house lately",
     icon: "pulse",
   },
   {
     id: "branches",
     name: "Forgotten corridors",
-    subtitle: "Branches awaiting a visit",
+    subtitle: "Branches whose footsteps are fading",
     icon: "branch",
   },
   {
     id: "unfinished",
     name: "The unfinished attic",
-    subtitle: "TODOs, dependencies, docs & structure",
-    icon: "ghost",
+    subtitle: "TODOs, loose dependencies, missing docs and tests",
+    icon: "skull",
   },
 ];
 export function parseRepository(input: string): string {

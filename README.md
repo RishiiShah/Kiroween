@@ -43,6 +43,9 @@ npm run preview
 - **Languages, people and releases** panel on Overview: language mix, top 8 contributors, and the latest release (3 requests, on request).
 - **Copy Markdown summary** in the Report menu, with repository text escaped. Includes loaded issues.
 - **Quota readout** in the top bar from GitHub's rate-limit headers.
+- **Command palette** (⌘K / Ctrl+K, built on `cmdk`): jump to any view, group, or finding; load issues or details; export, compare, print, copy Markdown; switch theme, motion, and sound. **J / K** step through visible findings; **Esc** closes evidence.
+- Motion (via `motion`, honoring both the system reduced-motion setting and **Reduce motion**): sliding nav indicator, staggered board cards with layout-aware filtering, evidence pane slide-in, animated activity bars and counters, toast entrances, and loading skeletons. No flashing or looping effects except loading indicators.
+- Icons from Lucide; Inter Variable for interface text, Bricolage Grotesque Variable for headings, IBM Plex Mono for paths. All fonts are bundled locally by Vite (Fontsource); no runtime font CDN.
 ## Scan contract
 
 `src/scan.ts` owns the snapshot/finding types, URL trust boundary, API reads, and evidence mapping. `src/App.tsx` renders those records without executing source content. `src/useSoundscape.ts` owns opt-in Web Audio lifecycle, volume envelopes, background suspension, and throttled cues. `src/reviews.ts` validates reports and notes and manages local autosave. `src/compare.ts` compares validated snapshots by finding ID and substantive evidence fields. React escapes repository text. Cached, bundled, and imported records pass structural and source-URL validation before display.
@@ -57,7 +60,7 @@ Nonessential API failures become snapshot warnings. Metadata failure preserves t
 
 ## $0 tools and hosting
 
-- React, Vite, Vitest, fast-check, and jsdom: MIT; TypeScript: Apache-2.0. Retain dependency license notices when distributing.
+- React, Vite, Vitest, fast-check, jsdom, motion, cmdk (with Radix UI Dialog): MIT; lucide-react: ISC; TypeScript: Apache-2.0; Inter and Bricolage Grotesque (Fontsource): SIL OFL 1.1. Retain dependency license notices when distributing.
 - Fraunces, Space Grotesk, and IBM Plex Mono: SIL Open Font License 1.1; bundled locally with notices and source URLs in `public/fonts/SOURCES.json`. Files total about 177 KiB; browser font swapping and two preloads keep text usable while downloading. Latin glyph assets use system fallbacks for other scripts.
 - CSS, SVG, browser storage; no paid assets, font subscriptions, database, analytics, or API keys.
 - GitHub public REST API: 60 unauthenticated requests/hour per originating IP; shared networks share quota. Browser scans call GitHub directly. Cached and demo records remain available when quota runs out.
