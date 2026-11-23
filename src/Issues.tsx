@@ -1,8 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { ago, isQuiet, QUIET_DAYS, type Issue } from "./community";
+import {
+  ASSOCIATION_LABEL,
+  ago,
+  isNewcomer,
+  isQuiet,
+  profileUrl,
+  QUIET_DAYS,
+  type Issue,
+  type PullDetails,
+} from "./community";
+import { Avatar } from "./People";
 import type { CommentList, IssueList, Loadable } from "./useCommunity";
 import { Icon, Skeleton } from "./ui";
+import { AgeHistogram } from "./charts";
+import { threadAgeBuckets } from "./activity";
 
 type Kind = Issue["kind"];
 type Props = {
@@ -12,6 +24,8 @@ type Props = {
   comments: Record<number, Loadable<CommentList>>;
   onLoad: () => void;
   onLoadComments: (number: number) => void;
+  pulls?: Record<number, Loadable<PullDetails>>;
+  onLoadPull?: (number: number) => void;
   focus?: number | null;
 };
 type Sort = "updated" | "comments" | "quiet";
@@ -38,6 +52,8 @@ export function Issues({
   comments,
   onLoad,
   onLoadComments,
+  pulls = {},
+  onLoadPull = () => {},
   focus = null,
 }: Props) {
   const [sort, setSort] = useState<Sort>("updated");
@@ -166,6 +182,12 @@ export function Issues({
           Refresh
         </button>
       </div>
+      {all.length > 0 && (
+        <figure className="issues-chart">
+          <figcaption className="eyebrow">Time since last update</figcaption>
+          <AgeHistogram buckets={threadAgeBuckets(all, now)} kinds={[kind]} height={120} />
+        </figure>
+      )}
       <div className="toolbar issues-toolbar">
         <label className="search">
           <Icon name="search" size={15} />
@@ -237,6 +259,8 @@ export function Issues({
             now={now}
             comments={current ? comments[current.number] : undefined}
             onLoadComments={() => current && onLoadComments(current.number)}
+            pull={current ? pulls[current.number] : undefined}
+            onLoadPull={() => current && onLoadPull(current.number)}
           />
         </div>
       ) : (
@@ -246,16 +270,28 @@ export function Issues({
   );
 }
 
+const REVIEW_LABEL: Record<string, string> = {
+  APPROVED: "Approved",
+  CHANGES_REQUESTED: "Changes requested",
+  COMMENTED: "Commented",
+  DISMISSED: "Dismissed",
+  PENDING: "Pending",
+};
+
 function IssueDetail({
   item,
   now,
   comments,
   onLoadComments,
+  pull,
+  onLoadPull,
 }: {
   item: Issue | null;
   now: string;
   comments?: Loadable<CommentList>;
   onLoadComments: () => void;
+  pull?: Loadable<PullDetails>;
+  onLoadPull: () => void;
 }) {
   if (!item)
     return (
@@ -278,10 +314,48 @@ function IssueDetail({
         #{item.number}
       </p>
       <h3 id="issue-detail-title">{item.title}</h3>
-      <p className="issue-byline">
-        Opened {ago(item.createdAt, now)} by {item.author} · updated {ago(item.updatedAt, now)}
-        {isQuiet(item, now) && <span className="warn"> · quiet {QUIET_DAYS}+ days</span>}
-      </p>
+      <div className="issue-people">
+        <Avatar id={item.authorId} login={item.author} size={30} />
+        <div>
+          <p className="issue-byline">
+            <a href={profileUrl(item.author)} target="_blank" rel="noreferrer">
+              <strong>{item.author}</strong>
+            </a>{" "}
+            <span className={`tag ${isNewcomer(item.association) ? "tag-review" : ""}`}>
+              {ASSOCIATION_LABEL[item.association]}
+            </span>
+          </p>
+          <p className="issue-byline">
+            Opened {ago(item.createdAt, now)} · updated {ago(item.updatedAt, now)}
+            {isQuiet(item, now) && <span className="warn"> · quiet {QUIET_DAYS}+ days</span>}
+            {item.reactions > 0 && ` · ${item.reactions} reactions`}
+          </p>
+        </div>
+      </div>
+      <dl className="issue-facts">
+        <div>
+          <dt>Assignees</dt>
+          <dd>
+            {item.assignees.length ? (
+              <span className="avatar-stack">
+                {item.assignees.map((person) => (
+                  <a key={person.login} href={profileUrl(person.login)} target="_blank" rel="noreferrer" title={person.login}>
+                    <Avatar id={person.id} login={person.login} size={22} />
+                    <span>{person.login}</span>
+                  </a>
+                ))}
+              </span>
+            ) : (
+              <span className="muted">Nobody yet</span>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Comments</dt>
+          <dd>{item.comments}</dd>
+        </div>
+      </dl>
+      {item.kind === "pull" && <PullReview pull={pull} onLoad={onLoadPull} />}
       {item.labels.length > 0 && (
         <ul className="label-list" aria-label="Labels">
           {item.labels.map((label) => (
@@ -338,5 +412,94 @@ function IssueDetail({
         </ol>
       )}
     </motion.article>
+  );
+}
+
+function PullReview({ pull, onLoad }: { pull?: Loadable<PullDetails>; onLoad: () => void }) {
+  if (!pull || pull.status === "idle" || pull.status === "error")
+    return (
+      <div className="pull-review is-idle">
+        <p className="muted">Size, files changed, requested reviewers, and review verdicts.</p>
+        <button className="btn btn-plain" onClick={onLoad}>
+          <Icon name="pull" size={14} />
+          Load review details · 2 requests
+        </button>
+        {pull?.status === "error" && (
+          <p className="inline-error" role="alert">
+            {pull.error}
+          </p>
+        )}
+      </div>
+    );
+  if (pull.status === "loading")
+    return (
+      <div className="pull-review">
+        <Skeleton lines={3} />
+      </div>
+    );
+  const data = pull.data!;
+  const total = Math.max(1, data.additions + data.deletions);
+  const latest = new Map<string, PullDetails["reviews"][number]>();
+  for (const review of data.reviews) latest.set(review.author, review);
+  return (
+    <motion.div
+      className="pull-review"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <div className="diffstat" aria-label={`${data.additions} additions, ${data.deletions} deletions across ${data.changedFiles} files`}>
+        <span className="add">+{data.additions.toLocaleString()}</span>
+        <span className="del">−{data.deletions.toLocaleString()}</span>
+        <span className="diffbar" aria-hidden="true">
+          <motion.i
+            className="add"
+            initial={{ width: 0 }}
+            animate={{ width: `${(data.additions / total) * 100}%` }}
+            transition={{ duration: 0.5 }}
+          />
+          <motion.i
+            className="del"
+            initial={{ width: 0 }}
+            animate={{ width: `${(data.deletions / total) * 100}%` }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          />
+        </span>
+        <span className="muted">
+          {data.changedFiles} files · {data.commits} commits
+          {data.mergeableState ? ` · ${data.mergeableState.replace(/_/g, " ")}` : ""}
+        </span>
+      </div>
+      <div className="review-people">
+        <p className="eyebrow">Reviews</p>
+        {latest.size || data.requestedReviewers.length ? (
+          <ul>
+            {[...latest.values()].map((review) => (
+              <li key={review.author}>
+                <Avatar id={review.id} login={review.author} size={22} />
+                <a href={profileUrl(review.author)} target="_blank" rel="noreferrer">
+                  {review.author}
+                </a>
+                <span className={`tag review-${review.state.toLowerCase()}`}>
+                  {REVIEW_LABEL[review.state] ?? review.state}
+                </span>
+              </li>
+            ))}
+            {data.requestedReviewers
+              .filter((person) => !latest.has(person.login))
+              .map((person) => (
+                <li key={person.login}>
+                  <Avatar id={person.id} login={person.login} size={22} />
+                  <a href={profileUrl(person.login)} target="_blank" rel="noreferrer">
+                    {person.login}
+                  </a>
+                  <span className="tag">Review requested</span>
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <p className="muted">No reviews or review requests yet.</p>
+        )}
+      </div>
+    </motion.div>
   );
 }

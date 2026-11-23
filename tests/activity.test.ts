@@ -52,3 +52,36 @@ describe("activity summary", () => {
     ).toBe(false);
   });
 });
+
+import { branchAges, threadAgeBuckets } from "../src/activity";
+describe("chart data", () => {
+  it("reads branch ages from scan explanations, oldest first", () => {
+    const ages = branchAges(demo);
+    expect(ages.length).toBe(demo.findings.filter((f) => f.zone === "branches").length);
+    expect(ages.map((a) => a.days)).toEqual([...ages.map((a) => a.days)].sort((a, b) => b - a));
+    expect(ages.every((a) => demo.findings.some((f) => f.id === a.id))).toBe(true);
+  });
+  it("puts every thread in exactly one age bucket", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            kind: fc.constantFrom("issue" as const, "pull" as const),
+            age: fc.integer({ min: 0, max: 4000 }),
+          }),
+          { maxLength: 100 },
+        ),
+        (rows) => {
+          const items = rows.map((r) => ({
+            kind: r.kind,
+            updatedAt: new Date(Date.parse(now) - r.age * 86400000).toISOString(),
+          }));
+          const buckets = threadAgeBuckets(items, now);
+          expect(buckets.reduce((s, b) => s + b.issue + b.pull, 0)).toBe(items.length);
+          const quiet = buckets.filter((b) => b.quiet).reduce((s, b) => s + b.issue + b.pull, 0);
+          expect(quiet).toBe(rows.filter((r) => r.age >= 90).length);
+        },
+      ),
+    );
+  });
+});

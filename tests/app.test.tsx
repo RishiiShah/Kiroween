@@ -55,6 +55,7 @@ async function loadReportFile(value: unknown) {
 beforeEach(() => {
   (globalThis as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
   localStorage.clear();
+  window.location.hash = "#/dashboard";
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => new Response(JSON.stringify(demo))),
@@ -825,5 +826,111 @@ describe("explorer interactions", () => {
     await expand("Report");
     await click("Export report");
     expect(menu("Report").open).toBe(false);
+  });
+
+  it("plots findings, branch ages, and commits from the snapshot itself", async () => {
+    await mountRaw();
+    const branchCount = demo.findings.filter((f) => f.zone === "branches").length;
+    expect(container.querySelectorAll(".bar-row")).toHaveLength(branchCount);
+    const chart = container.querySelector('[aria-label^="Branch tip age"]')!;
+    for (const finding of demo.findings.filter((f) => f.zone === "branches"))
+      expect(chart.getAttribute("aria-label")).toContain(finding.path);
+    expect(container.querySelectorAll(".donut-slice").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll(".timeline-dot")).toHaveLength(
+      demo.findings.filter((f) => f.zone === "activity").length,
+    );
+    const quiet = container.querySelector<SVGGElement>(".bar-row.is-quiet")!;
+    await act(async () => quiet.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(container.querySelector(".inspector h3")?.textContent).toMatch(/quiet/);
+  });
+
+  it("starts on the home page and opens the dashboard only on request", async () => {
+    window.location.hash = "";
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        calls.push(input);
+        return new Response(JSON.stringify(demo));
+      }),
+    );
+    await mountRaw();
+    expect(container.querySelector("#home-title")).toBeTruthy();
+    expect(container.querySelector(".sidebar")).toBeNull();
+    expect(calls.filter((c) => c.includes("api.github.com"))).toHaveLength(0);
+    await click("Open the demo dashboard");
+    expect(window.location.hash).toBe("#/dashboard");
+    expect(container.querySelector(".sidebar")).toBeTruthy();
+    expect(container.textContent).toContain("BUNDLED DEMO");
+    expect(calls.filter((c) => c.includes("api.github.com")).length).toBeGreaterThan(0);
+    await act(async () => {
+      window.location.hash = "#/";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(container.querySelector("#home-title")).toBeTruthy();
+  });
+
+  it("offers to resume a saved scan and lists recent scans on the home page", async () => {
+    window.location.hash = "";
+    const saved = { ...demo, repository: "octo/manor", findings: demo.findings.map((f) => ({ ...f, source: f.source.replace("expressjs/express", "octo/manor") })) };
+    localStorage.setItem("poltergeist.snapshot.v1", JSON.stringify(saved));
+    localStorage.setItem(
+      "poltergeist.history.v1",
+      JSON.stringify([
+        { repository: "octo/manor", observedAt: demo.observedAt, findings: 3, review: 1 },
+        { repository: "ghost/house", observedAt: demo.observedAt, findings: 5, review: 2 },
+        { repository: "<script>/x", observedAt: demo.observedAt, findings: 1, review: 1 },
+      ]),
+    );
+    await mountRaw();
+    const cards = [...container.querySelectorAll(".recent-card")];
+    expect(cards.map((c) => c.querySelector("strong")?.textContent)).toEqual(["octo/manor", "ghost/house"]);
+    expect(cards[0].textContent).toContain("Saved scan");
+    await act(async () => (cards[0] as HTMLButtonElement).click());
+    expect(container.querySelector(".crumb-repo")?.textContent).toContain("manor");
+  });
+
+  it("shows people from commits and open threads", async () => {
+    const withPeople = {
+      ...demo,
+      commits: [
+        { sha: "a".repeat(40), date: "2026-11-01T00:00:00Z", author: "ann", login: "ann", avatarId: 5 },
+        { sha: "b".repeat(40), date: "2026-11-02T00:00:00Z", author: "ann", login: "ann", avatarId: 5 },
+        { sha: "c".repeat(40), date: "2026-11-03T00:00:00Z", author: "Bob", login: null, avatarId: null },
+      ],
+    };
+    localStorage.setItem("poltergeist.snapshot.v1", JSON.stringify(withPeople));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) =>
+        input.includes("/issues?")
+          ? new Response(
+              JSON.stringify([
+                {
+                  number: 11,
+                  title: "Fix the cellar door",
+                  user: { login: "newbie", id: 77 },
+                  author_association: "FIRST_TIME_CONTRIBUTOR",
+                  assignees: [{ login: "keeper", id: 8 }],
+                  comments: 0,
+                  labels: [],
+                  created_at: "2026-10-01T00:00:00Z",
+                  updated_at: "2026-10-02T00:00:00Z",
+                  pull_request: {},
+                },
+              ]),
+            )
+          : new Response(JSON.stringify(input.includes("api.github.com") ? [] : withPeople)),
+      ),
+    );
+    await mountRaw();
+    await click("People");
+    const text = container.querySelector(".people")?.textContent ?? "";
+    expect(text).toContain("Fix the cellar door");
+    expect(text).toContain("keeper");
+    expect(text).toContain("ann");
+    const avatar = container.querySelector<HTMLImageElement>(".people img");
+    expect(avatar?.getAttribute("src")).toMatch(/^https:\/\/avatars\.githubusercontent\.com\/u\/\d+\?s=\d+&v=4$/);
+    expect(avatar?.getAttribute("referrerpolicy")).toBe("no-referrer");
   });
 });

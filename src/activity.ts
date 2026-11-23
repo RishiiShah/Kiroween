@@ -72,3 +72,47 @@ export function zoneCounts(snapshot: Snapshot) {
     };
   });
 }
+
+export type BranchAge = { id: string; name: string; days: number };
+
+/** Branch tip ages come from the scan's own explanation text ("Tip commit is N days old"). */
+export function branchAges(snapshot: Snapshot): BranchAge[] {
+  return snapshot.findings
+    .filter((finding) => finding.zone === "branches")
+    .map((finding) => {
+      const match = finding.explanation.match(/Tip commit is (\d+) days? old/);
+      return match ? { id: finding.id, name: finding.path, days: Number(match[1]) } : null;
+    })
+    .filter((item): item is BranchAge => item !== null)
+    .sort((a, b) => b.days - a.days || a.name.localeCompare(b.name));
+}
+
+export const AGE_BUCKETS = [
+  { label: "< 1 wk", max: 7 },
+  { label: "1–4 wk", max: 30 },
+  { label: "1–3 mo", max: 90 },
+  { label: "3–12 mo", max: 365 },
+  { label: "1 yr +", max: Infinity },
+] as const;
+
+export type AgeBucket = { label: string; issue: number; pull: number; quiet: boolean };
+
+/** Counts open threads by time since their last update. Buckets at or past 90 days are "quiet". */
+export function threadAgeBuckets(
+  items: { kind: "issue" | "pull"; updatedAt: string }[],
+  now: string,
+): AgeBucket[] {
+  const buckets = AGE_BUCKETS.map((bucket, index) => ({
+    label: bucket.label,
+    issue: 0,
+    pull: 0,
+    quiet: index >= 3,
+  }));
+  for (const item of items) {
+    const days = Math.max(0, (Date.parse(now) - Date.parse(item.updatedAt)) / DAY);
+    if (!Number.isFinite(days)) continue;
+    const index = AGE_BUCKETS.findIndex((bucket) => days < bucket.max);
+    buckets[index === -1 ? buckets.length - 1 : index][item.kind]++;
+  }
+  return buckets;
+}

@@ -4,9 +4,11 @@ import {
   fetchComments,
   fetchDetails,
   fetchIssues,
+  fetchPullDetails,
   type Details,
   type Issue,
   type IssueComment,
+  type PullDetails,
 } from "./community";
 
 export type Loadable<T> = {
@@ -22,73 +24,91 @@ const message = (error: unknown) =>
 
 /**
  * GitHub reads for one repository. Everything resets when the repository changes.
- * With autoLoad, open issues and pull requests (one request) load as soon as a
- * repository is shown, unless GitHub already reported an exhausted quota.
+ * When autoLoad becomes true, open threads (1 request) and repository details
+ * (4 requests) load once, unless GitHub already reported an exhausted quota.
+ * Leaving and re-entering the dashboard does not refetch.
  */
 export function useCommunity(repository: string | undefined, autoLoad = false) {
   const [issues, setIssues] = useState<Loadable<IssueList>>(idle);
   const [details, setDetails] = useState<Loadable<Details>>(idle);
   const [comments, setComments] = useState<Record<number, Loadable<CommentList>>>({});
+  const [pulls, setPulls] = useState<Record<number, Loadable<PullDetails>>>({});
   const controller = useRef<AbortController | null>(null);
-  const autoStart = useRef<() => void>(() => {});
+  const started = useRef<string | null>(null);
 
   useEffect(() => {
     const own = new AbortController();
     controller.current?.abort();
     controller.current = own;
+    started.current = null;
     setIssues(idle);
     setDetails(idle);
     setComments({});
-    const quota = getQuota();
-    if (repository && autoLoad && (!quota || quota.remaining > 0)) autoStart.current();
+    setPulls({});
     return () => own.abort();
-  }, [repository, autoLoad]);
-
-  const loadIssues = useCallback(async () => {
-    const signal = controller.current?.signal;
-    if (!repository || !signal) return;
-    setIssues({ status: "loading" });
-    try {
-      const data = await fetchIssues(repository, signal);
-      if (!signal.aborted) setIssues({ status: "ready", data });
-    } catch (error) {
-      if (!signal.aborted) setIssues({ status: "error", error: message(error) });
-    }
   }, [repository]);
 
-  autoStart.current = () => void loadIssues();
-
-  const loadDetails = useCallback(async () => {
-    const signal = controller.current?.signal;
-    if (!repository || !signal) return;
-    setDetails({ status: "loading" });
-    try {
-      const data = await fetchDetails(repository, signal);
-      if (!signal.aborted) setDetails({ status: "ready", data });
-    } catch (error) {
-      if (!signal.aborted) setDetails({ status: "error", error: message(error) });
-    }
-  }, [repository]);
-
-  const loadComments = useCallback(
-    async (number: number) => {
+  const run = useCallback(
+    async <T,>(
+      set: (value: Loadable<T> | ((all: Loadable<T>) => Loadable<T>)) => void,
+      load: (signal: AbortSignal) => Promise<T>,
+    ) => {
       const signal = controller.current?.signal;
       if (!repository || !signal) return;
-      setComments((all) => ({ ...all, [number]: { status: "loading" } }));
+      set({ status: "loading" });
       try {
-        const data = await fetchComments(repository, number, signal);
-        if (!signal.aborted)
-          setComments((all) => ({ ...all, [number]: { status: "ready", data } }));
+        const data = await load(signal);
+        if (!signal.aborted) set({ status: "ready", data });
       } catch (error) {
-        if (!signal.aborted)
-          setComments((all) => ({
-            ...all,
-            [number]: { status: "error", error: message(error) },
-          }));
+        if (!signal.aborted) set({ status: "error", error: message(error) });
       }
     },
     [repository],
   );
 
-  return { issues, details, comments, loadIssues, loadDetails, loadComments };
+  const loadIssues = useCallback(
+    () => run(setIssues, (signal) => fetchIssues(repository!, signal)),
+    [run, repository],
+  );
+  const loadDetails = useCallback(
+    () => run(setDetails, (signal) => fetchDetails(repository!, signal)),
+    [run, repository],
+  );
+  const keyed =
+    <T,>(setAll: React.Dispatch<React.SetStateAction<Record<number, Loadable<T>>>>, number: number) =>
+    (value: Loadable<T> | ((all: Loadable<T>) => Loadable<T>)) =>
+      setAll((all) => ({
+        ...all,
+        [number]: typeof value === "function" ? value(all[number] ?? idle) : value,
+      }));
+  const loadComments = useCallback(
+    (number: number) =>
+      run(keyed(setComments, number), (signal) => fetchComments(repository!, number, signal)),
+    [run, repository],
+  );
+  const loadPull = useCallback(
+    (number: number) =>
+      run(keyed(setPulls, number), (signal) => fetchPullDetails(repository!, number, signal)),
+    [run, repository],
+  );
+
+  useEffect(() => {
+    if (!repository || !autoLoad || started.current === repository) return;
+    const quota = getQuota();
+    if (quota && quota.remaining <= 0) return;
+    started.current = repository;
+    void loadIssues();
+    void loadDetails();
+  }, [repository, autoLoad, loadIssues, loadDetails]);
+
+  return {
+    issues,
+    details,
+    comments,
+    pulls,
+    loadIssues,
+    loadDetails,
+    loadComments,
+    loadPull,
+  };
 }

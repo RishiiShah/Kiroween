@@ -7,29 +7,96 @@ export type Issue = {
   kind: "issue" | "pull";
   draft: boolean;
   author: string;
+  authorId: number | null;
+  association: Association;
+  assignees: Person[];
+  reactions: number;
   comments: number;
   labels: string[];
   createdAt: string;
   updatedAt: string;
   excerpt: string;
 };
+export type Association =
+  | "OWNER"
+  | "MEMBER"
+  | "COLLABORATOR"
+  | "CONTRIBUTOR"
+  | "FIRST_TIME_CONTRIBUTOR"
+  | "FIRST_TIMER"
+  | "NONE";
+const ASSOCIATIONS: Association[] = [
+  "OWNER",
+  "MEMBER",
+  "COLLABORATOR",
+  "CONTRIBUTOR",
+  "FIRST_TIME_CONTRIBUTOR",
+  "FIRST_TIMER",
+  "NONE",
+];
+export const ASSOCIATION_LABEL: Record<Association, string> = {
+  OWNER: "Owner",
+  MEMBER: "Member",
+  COLLABORATOR: "Collaborator",
+  CONTRIBUTOR: "Contributor",
+  FIRST_TIME_CONTRIBUTOR: "First-time contributor",
+  FIRST_TIMER: "First-timer",
+  NONE: "Outside contributor",
+};
+export const isMaintainer = (value: Association) =>
+  value === "OWNER" || value === "MEMBER" || value === "COLLABORATOR";
+export const isNewcomer = (value: Association) =>
+  value === "FIRST_TIME_CONTRIBUTOR" || value === "FIRST_TIMER";
+export type Person = { login: string; id: number | null };
+/** Avatar URLs are built from a validated numeric id, never copied from responses. */
+export const avatarUrl = (id: number | null, size = 64) =>
+  id && Number.isInteger(id) && id > 0
+    ? `https://avatars.githubusercontent.com/u/${id}?s=${size}&v=4`
+    : null;
+export const profileUrl = (login: string) =>
+  `https://github.com/${encodeURIComponent(login)}`;
+
 export type IssueComment = {
   id: number;
   author: string;
   createdAt: string;
   excerpt: string;
 };
+export type Release = {
+  tag: string;
+  name: string;
+  publishedAt: string;
+  url: string;
+  prerelease: boolean;
+};
+export type Week = { week: string; total: number; days: number[] };
 export type Details = {
   languages: { name: string; bytes: number }[];
-  contributors: { login: string; contributions: number; url: string }[];
-  release: { tag: string; name: string; publishedAt: string; url: string } | null;
+  contributors: { login: string; id: number | null; contributions: number; url: string }[];
+  contributorsMore: boolean;
+  release: Release | null;
+  releases: Release[];
+  weeks: Week[] | null;
+  weeksPending: boolean;
   warnings: string[];
   fetchedAt: string;
+};
+export type PullDetails = {
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  commits: number;
+  requestedReviewers: Person[];
+  reviews: { author: string; id: number | null; state: string; submittedAt: string }[];
+  mergeableState: string | null;
 };
 export const COMMUNITY_LIMITS = {
   issues: 100,
   comments: 10,
-  contributors: 8,
+  contributors: 30,
+  releases: 10,
+  reviews: 30,
+  assignees: 5,
   languages: 6,
   excerpt: 600,
   commentExcerpt: 500,
@@ -83,8 +150,9 @@ async function api(repository: string, path: string, signal?: AbortSignal) {
     );
   }
   const more = /rel="next"/.test(response.headers.get("link") || "");
-  if (response.status === 204) return { data: [] as unknown, more };
-  return { data: (await response.json()) as unknown, more };
+  if (response.status === 204 || response.status === 202)
+    return { data: [] as unknown, more, status: response.status };
+  return { data: (await response.json()) as unknown, more, status: response.status };
 }
 
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -93,12 +161,24 @@ const record = (value: unknown): Record<string, unknown> | null =>
     : null;
 const validDate = (value: unknown): value is string =>
   typeof value === "string" && Number.isFinite(Date.parse(value));
+const LOGIN = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(\[bot\])?$/;
 const login = (value: unknown) => {
   const name = record(value)?.login;
-  return typeof name === "string" && /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(\[bot\])?$/.test(name)
-    ? name
-    : "ghost";
+  return typeof name === "string" && LOGIN.test(name) ? name : "ghost";
 };
+const userId = (value: unknown) => {
+  const id = record(value)?.id;
+  return typeof id === "number" && Number.isInteger(id) && id > 0 ? id : null;
+};
+const person = (value: unknown): Person | null => {
+  const name = record(value)?.login;
+  return typeof name === "string" && LOGIN.test(name) ? { login: name, id: userId(value) } : null;
+};
+const people = (value: unknown, max: number) =>
+  (Array.isArray(value) ? value : [])
+    .map(person)
+    .filter((item): item is Person => item !== null)
+    .slice(0, max);
 
 /** Links are built from validated parts, never copied from API responses. */
 export const issueUrl = (repository: string, number: number, kind: Issue["kind"]) =>
@@ -133,6 +213,15 @@ export function parseIssues(data: unknown, repository: string): Issue[] {
       kind,
       draft: item.draft === true,
       author: login(item.user),
+      authorId: userId(item.user),
+      association: ASSOCIATIONS.includes(item.author_association as Association)
+        ? (item.author_association as Association)
+        : "NONE",
+      assignees: people(item.assignees, COMMUNITY_LIMITS.assignees),
+      reactions: (() => {
+        const total = record(item.reactions)?.total_count;
+        return typeof total === "number" && total >= 0 ? Math.floor(total) : 0;
+      })(),
       comments:
         typeof item.comments === "number" && item.comments >= 0
           ? Math.floor(item.comments)
@@ -214,9 +303,50 @@ export function parseContributors(data: unknown) {
     .slice(0, COMMUNITY_LIMITS.contributors)
     .map((item) => ({
       login: item.login as string,
+      id: userId(item),
       contributions: Math.max(0, Math.floor(item.contributions as number)),
-      url: `https://github.com/${encodeURIComponent(item.login as string)}`,
+      url: profileUrl(item.login as string),
     }));
+}
+
+export function parseReleases(data: unknown, repository: string): Release[] {
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((raw) => record(raw))
+    .filter((item): item is Record<string, unknown> => !!item && item.draft !== true)
+    .map((item) => {
+      const base = parseRelease(item, repository);
+      return base && base.publishedAt
+        ? { ...base, prerelease: item.prerelease === true }
+        : null;
+    })
+    .filter((item): item is Release => item !== null)
+    .slice(0, COMMUNITY_LIMITS.releases);
+}
+
+export function parseWeeks(data: unknown): Week[] {
+  if (!Array.isArray(data)) return [];
+  return data
+    .map((raw) => record(raw))
+    .filter(
+      (item): item is Record<string, unknown> =>
+        !!item &&
+        typeof item.week === "number" &&
+        Number.isFinite(item.week) &&
+        Array.isArray(item.days) &&
+        item.days.length === 7,
+    )
+    .slice(-52)
+    .map((item) => {
+      const days = (item.days as unknown[]).map((d) =>
+        typeof d === "number" && d >= 0 ? Math.floor(d) : 0,
+      );
+      return {
+        week: new Date((item.week as number) * 1000).toISOString(),
+        days,
+        total: days.reduce((sum, d) => sum + d, 0),
+      };
+    });
 }
 
 export function parseRelease(data: unknown, repository: string) {
@@ -227,15 +357,17 @@ export function parseRelease(data: unknown, repository: string) {
     name: clip(item.name, 160) || clip(item.tag_name, 100),
     publishedAt: validDate(item.published_at) ? item.published_at : "",
     url: `https://github.com/${repository}/releases/tag/${encodeURIComponent(item.tag_name)}`,
+    prerelease: item.prerelease === true,
   };
 }
 
 export async function fetchDetails(repository: string, signal?: AbortSignal): Promise<Details> {
   const warnings: string[] = [];
-  const [languages, contributors, release] = await Promise.allSettled([
+  const [languages, contributors, releases, weekly] = await Promise.allSettled([
     api(repository, "/languages", signal),
     api(repository, `/contributors?per_page=${COMMUNITY_LIMITS.contributors}`, signal),
-    api(repository, "/releases/latest", signal),
+    api(repository, `/releases?per_page=${COMMUNITY_LIMITS.releases}`, signal),
+    api(repository, "/stats/commit_activity", signal),
   ]);
   signal?.throwIfAborted();
   const note = (label: string, result: PromiseRejectedResult) => {
@@ -245,21 +377,65 @@ export async function fetchDetails(repository: string, signal?: AbortSignal): Pr
   };
   if (languages.status === "rejected") note("Languages", languages);
   if (contributors.status === "rejected") note("Contributors", contributors);
-  if (release.status === "rejected") note("Latest release", release);
-  if (
-    languages.status === "rejected" &&
-    contributors.status === "rejected" &&
-    release.status === "rejected" &&
-    warnings.length === 3
-  )
+  if (releases.status === "rejected") note("Releases", releases);
+  if (weekly.status === "rejected") note("Weekly activity", weekly);
+  const results = [languages, contributors, releases, weekly];
+  if (results.every((result) => result.status === "rejected") && warnings.length === 4)
     throw new Error(warnings[0].replace(/^Languages: /, ""));
+  const releaseList =
+    releases.status === "fulfilled" ? parseReleases(releases.value.data, repository) : [];
+  const weeksPending = weekly.status === "fulfilled" && weekly.value.status === 202;
   return {
     languages: languages.status === "fulfilled" ? parseLanguages(languages.value.data) : [],
     contributors:
       contributors.status === "fulfilled" ? parseContributors(contributors.value.data) : [],
-    release: release.status === "fulfilled" ? parseRelease(release.value.data, repository) : null,
+    contributorsMore: contributors.status === "fulfilled" && contributors.value.more,
+    release: releaseList.find((release) => !release.prerelease) ?? releaseList[0] ?? null,
+    releases: releaseList,
+    weeks:
+      weekly.status === "fulfilled" && !weeksPending ? parseWeeks(weekly.value.data) : null,
+    weeksPending,
     warnings,
     fetchedAt: new Date().toISOString(),
+  };
+}
+
+export async function fetchPullDetails(
+  repository: string,
+  number: number,
+  signal?: AbortSignal,
+): Promise<PullDetails> {
+  if (!Number.isInteger(number) || number < 1) throw new Error("Invalid pull request number.");
+  const [pull, reviews] = await Promise.all([
+    api(repository, `/pulls/${number}`, signal),
+    api(repository, `/pulls/${number}/reviews?per_page=${COMMUNITY_LIMITS.reviews}`, signal),
+  ]);
+  const item = record(pull.data) ?? {};
+  const n = (value: unknown) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+  const STATES = ["APPROVED", "CHANGES_REQUESTED", "COMMENTED", "DISMISSED", "PENDING"];
+  return {
+    additions: n(item.additions),
+    deletions: n(item.deletions),
+    changedFiles: n(item.changed_files),
+    commits: n(item.commits),
+    requestedReviewers: people(item.requested_reviewers, 10),
+    reviews: (Array.isArray(reviews.data) ? reviews.data : [])
+      .map((raw) => record(raw))
+      .filter(
+        (review): review is Record<string, unknown> =>
+          !!review && STATES.includes(review.state as string) && validDate(review.submitted_at),
+      )
+      .map((review) => ({
+        author: login(review.user),
+        id: userId(review.user),
+        state: review.state as string,
+        submittedAt: review.submitted_at as string,
+      })),
+    mergeableState:
+      typeof item.mergeable_state === "string" && /^[a-z_]{1,20}$/.test(item.mergeable_state)
+        ? item.mergeable_state
+        : null,
   };
 }
 

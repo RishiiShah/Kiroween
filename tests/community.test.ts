@@ -140,7 +140,7 @@ describe("GitHub reads", () => {
   });
   it("fails when every detail read fails", async () => {
     stub({});
-    stub({ "/languages": () => new Response("{}", { status: 500 }), "/contributors": () => new Response("{}", { status: 500 }), "/releases": () => new Response("{}", { status: 500 }) });
+    stub({ "/languages": () => new Response("{}", { status: 500 }), "/contributors": () => new Response("{}", { status: 500 }), "/releases": () => new Response("{}", { status: 500 }), "/stats": () => new Response("{}", { status: 500 }) });
     await expect(fetchDetails(repo)).rejects.toThrow();
   });
   it("groups small languages and builds contributor links itself", () => {
@@ -176,3 +176,83 @@ describe("markdown summary", () => {
     for (const finding of demo.findings) expect(text).toContain(finding.source);
   });
 });
+
+import { avatarUrl, fetchPullDetails, parseReleases, parseWeeks } from "../src/community";
+describe("people and project history", () => {
+  it("reads associations, assignees, and reactions from the same issues request", () => {
+    const [issue] = parseIssues(
+      [
+        raw({
+          author_association: "FIRST_TIME_CONTRIBUTOR",
+          assignees: [{ login: "a", id: 1 }, { login: "../x", id: 2 }],
+          reactions: { total_count: 5 },
+          user: { login: "new", id: 42 },
+        }),
+      ],
+      repo,
+    );
+    expect(issue.association).toBe("FIRST_TIME_CONTRIBUTOR");
+    expect(issue.assignees).toEqual([{ login: "a", id: 1 }]);
+    expect(issue.reactions).toBe(5);
+    expect(issue.authorId).toBe(42);
+    expect(parseIssues([raw({ author_association: "<script>" })], repo)[0].association).toBe("NONE");
+  });
+  it("builds avatar URLs only from positive integer ids", () => {
+    expect(avatarUrl(42)).toBe("https://avatars.githubusercontent.com/u/42?s=64&v=4");
+    expect(avatarUrl(null)).toBeNull();
+    expect(avatarUrl(-1)).toBeNull();
+    expect(avatarUrl(1.5)).toBeNull();
+  });
+  it("keeps published releases and 52 weeks of activity", () => {
+    const releases = parseReleases(
+      [
+        { tag_name: "v2", published_at: "2026-10-01T00:00:00Z" },
+        { tag_name: "v2-rc", published_at: "2026-09-01T00:00:00Z", prerelease: true },
+        { tag_name: "draft", draft: true, published_at: "2026-08-01T00:00:00Z" },
+        { tag_name: "undated" },
+      ],
+      repo,
+    );
+    expect(releases.map((r) => r.tag)).toEqual(["v2", "v2-rc"]);
+    expect(releases[1].prerelease).toBe(true);
+    const weeks = parseWeeks(
+      Array.from({ length: 60 }, (_, i) => ({ week: 1700000000 + i * 604800, days: [1, 0, 0, 0, 0, 0, 2], total: 3 })),
+    );
+    expect(weeks).toHaveLength(52);
+    expect(weeks[0].total).toBe(3);
+    expect(parseWeeks([{ week: 1, days: [1] }])).toEqual([]);
+  });
+  it("treats GitHub's 202 'computing' reply as pending weekly stats", async () => {
+    stub({
+      "/languages": () => new Response("{}"),
+      "/contributors": () => new Response("[]"),
+      "/releases": () => new Response("[]"),
+      "/stats/commit_activity": () => new Response(null, { status: 202 }),
+    });
+    const details = await fetchDetails(repo);
+    expect(details.weeks).toBeNull();
+    expect(details.weeksPending).toBe(true);
+  });
+  it("loads pull request size and reviews in two requests", async () => {
+    const fn = stub({
+      "/pulls/8/reviews": () =>
+        new Response(
+          JSON.stringify([
+            { user: { login: "rev", id: 3 }, state: "APPROVED", submitted_at: "2026-11-01T00:00:00Z" },
+            { user: { login: "x" }, state: "<b>", submitted_at: "2026-11-01T00:00:00Z" },
+          ]),
+        ),
+      "/pulls/8": () =>
+        new Response(
+          JSON.stringify({ additions: 10, deletions: 2, changed_files: 3, commits: 1, requested_reviewers: [{ login: "lead", id: 9 }], mergeable_state: "clean" }),
+        ),
+    });
+    const pull = await fetchPullDetails(repo, 8);
+    expect(pull).toMatchObject({ additions: 10, deletions: 2, changedFiles: 3, mergeableState: "clean" });
+    expect(pull.requestedReviewers).toEqual([{ login: "lead", id: 9 }]);
+    expect(pull.reviews.map((r) => r.state)).toEqual(["APPROVED"]);
+    expect(fn).toHaveBeenCalledTimes(2);
+    await expect(fetchPullDetails(repo, 0)).rejects.toThrow();
+  });
+});
+

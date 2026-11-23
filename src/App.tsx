@@ -1,5 +1,7 @@
 import { Overview } from "./Overview";
 import { Issues } from "./Issues";
+import { People } from "./People";
+import { Home, type HistoryEntry } from "./Home";
 import { useCommunity } from "./useCommunity";
 import { getQuota, subscribeQuota } from "./quota";
 import { toMarkdown } from "./markdown";
@@ -33,6 +35,32 @@ import { useSoundscape } from "./useSoundscape";
 import { parseReport, reportReviews, reviewKey, useReviews } from "./reviews";
 import { compareSnapshots, type Comparison } from "./compare";
 const CACHE = "poltergeist.snapshot.v1";
+const HISTORY = "poltergeist.history.v1";
+type Route = "home" | "dashboard";
+const readRoute = (): Route =>
+  typeof window !== "undefined" && window.location.hash.startsWith("#/dashboard")
+    ? "dashboard"
+    : "home";
+function loadHistory(): HistoryEntry[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(HISTORY) || "[]");
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter(
+        (item): item is HistoryEntry =>
+          !!item &&
+          typeof item.repository === "string" &&
+          /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/.test(item.repository) &&
+          typeof item.observedAt === "string" &&
+          Number.isFinite(Date.parse(item.observedAt)) &&
+          typeof item.findings === "number" &&
+          typeof item.review === "number",
+      )
+      .slice(0, 8);
+  } catch {
+    return [];
+  }
+}
 const date = (value: string) =>
   new Date(value).toLocaleDateString(undefined, {
     month: "short",
@@ -50,7 +78,7 @@ export function App() {
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [view, setView] = useState<"overview" | "issues" | "pulls" | "map" | "table">("overview");
+  const [view, setView] = useState<"overview" | "people" | "issues" | "pulls" | "map" | "table">("overview");
   const [zone, setZone] = useState<Zone | "all">("all");
   const [status, setStatus] = useState("all");
   const [query, setQuery] = useState("");
@@ -58,6 +86,36 @@ export function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [theme, setTheme] = useState<ThemeId>(loadTheme);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [route, setRoute] = useState<Route>(readRoute);
+  const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
+  useEffect(() => {
+    const onHash = () => setRoute(readRoute());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+  function navigate(next: Route) {
+    const hash = next === "dashboard" ? "#/dashboard" : "#/";
+    if (window.location.hash !== hash) window.location.hash = hash;
+    setRoute(next);
+    if (next === "dashboard") requestAnimationFrame(() => document.getElementById("explorer")?.focus({ preventScroll: true }));
+  }
+  function remember(data: Snapshot) {
+    const entry: HistoryEntry = {
+      repository: data.repository,
+      observedAt: data.observedAt,
+      findings: data.findings.length,
+      review: data.findings.filter((finding) => finding.severity === "review").length,
+    };
+    setHistory((all) => {
+      const next = [entry, ...all.filter((item) => item.repository !== entry.repository)].slice(0, 8);
+      try {
+        localStorage.setItem(HISTORY, JSON.stringify(next));
+      } catch {
+        /* history is a convenience; ignore storage failures */
+      }
+      return next;
+    });
+  }
   const appRef = useRef<HTMLDivElement>(null);
   const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
   const prefersDark = useSyncExternalStore(
@@ -79,7 +137,10 @@ export function App() {
   } | null>(null);
   const sound = useSoundscape();
   const review = useReviews();
-  const community = useCommunity(snapshot?.repository, origin !== "imported");
+  const community = useCommunity(
+    snapshot?.repository,
+    origin !== "imported" && route === "dashboard",
+  );
   const [threadFocus, setThreadFocus] = useState<number | null>(null);
   const threadCount = (kind: "issue" | "pull") =>
     community.issues.status === "loading"
@@ -194,9 +255,12 @@ export function App() {
 
   async function scan(event: React.FormEvent) {
     event.preventDefault();
-    const target = /^[A-Za-z0-9][\w.-]*\/[\w.-]+$/.test(url.trim())
-      ? `https://github.com/${url.trim()}`
-      : url;
+    await scanFor(url);
+  }
+  async function scanFor(value: string) {
+    const target = /^[A-Za-z0-9][\w.-]*\/[\w.-]+$/.test(value.trim())
+      ? `https://github.com/${value.trim()}`
+      : value;
     try {
       parseRepository(target);
     } catch (err) {
@@ -211,6 +275,8 @@ export function App() {
     try {
       const data = await scanRepository(target, abort.signal, setProgress);
       show(data, "live");
+      remember(data);
+      navigate("dashboard");
       sound.cue(true);
       try {
         localStorage.setItem(CACHE, JSON.stringify(data));
@@ -239,6 +305,7 @@ export function App() {
     show(demo.current, "demo");
     setError("");
     setNotice("");
+    navigate("dashboard");
   }
   function clearCache() {
     try {
@@ -297,6 +364,7 @@ export function App() {
       }
       review.merge(report.reviews);
       show(report.snapshot, "imported");
+      navigate("dashboard");
       setUrl(`https://github.com/${report.snapshot.repository}`);
       setNotice("Report imported offline. Existing local notes are preserved.");
       try {
@@ -376,6 +444,7 @@ export function App() {
 
   const VIEW_TITLES = {
     overview: "Overview",
+    people: "People",
     issues: "Issues",
     pulls: "Pull requests",
     map: "Findings",
@@ -425,7 +494,7 @@ export function App() {
       setSelected(null);
       return;
     }
-    if (typing || !snapshot || !findings.length) return;
+    if (typing || route !== "dashboard" || !snapshot || !findings.length) return;
     if (event.key === "j" || event.key === "k") {
       const step = event.key === "j" ? 1 : -1;
       const next =
@@ -444,18 +513,20 @@ export function App() {
       heading: "Go to",
       items: snapshot
         ? [
-            { id: "go-overview", label: "Overview", icon: "home", onSelect: () => go("overview") },
-            { id: "go-issues", label: "Issues", icon: "issue", onSelect: () => go("issues") },
-            { id: "go-pulls", label: "Pull requests", icon: "pull", onSelect: () => go("pulls") },
-            { id: "go-findings", label: "All findings", icon: "board", onSelect: () => go("map") },
+            { id: "go-home", label: "Home page", icon: "ghost", onSelect: () => navigate("home") },
+            { id: "go-overview", label: "Overview", icon: "home", onSelect: () => { navigate("dashboard"); go("overview"); } },
+            { id: "go-people", label: "People", icon: "users", onSelect: () => { navigate("dashboard"); go("people"); } },
+            { id: "go-issues", label: "Issues", icon: "issue", onSelect: () => { navigate("dashboard"); go("issues"); } },
+            { id: "go-pulls", label: "Pull requests", icon: "pull", onSelect: () => { navigate("dashboard"); go("pulls"); } },
+            { id: "go-findings", label: "All findings", icon: "board", onSelect: () => { navigate("dashboard"); go("map"); } },
             ...ZONES.map((item) => ({
               id: `go-${item.id}`,
               label: item.name,
               hint: item.subtitle,
               icon: item.icon,
-              onSelect: () => go("map", item.id),
+              onSelect: () => { navigate("dashboard"); go("map", item.id); },
             })),
-            { id: "go-table", label: "Analyst table", icon: "table", onSelect: () => go("table") },
+            { id: "go-table", label: "Analyst table", icon: "table", onSelect: () => { navigate("dashboard"); go("table"); } },
           ]
         : [],
     },
@@ -467,7 +538,7 @@ export function App() {
         hint: finding.path,
         icon: finding.severity === "review" ? "alert" : "activity",
         keywords: [finding.path, finding.zone, finding.severity],
-        onSelect: () => selectTrace(finding.id),
+        onSelect: () => { navigate("dashboard"); selectTrace(finding.id); },
       })),
     },
     {
@@ -485,6 +556,7 @@ export function App() {
                 icon: item.kind === "pull" ? (item.draft ? "draft" : "pull") : "issue",
                 keywords: [item.author, ...item.labels],
                 onSelect: () => {
+                  navigate("dashboard");
                   setThreadFocus(item.number);
                   setView(item.kind === "pull" ? "pulls" : "issues");
                 },
@@ -532,14 +604,57 @@ export function App() {
     <IconSetContext.Provider value={iconSetFor(resolvedTheme)}>
     <div
       ref={appRef}
-      className={`app theme-${resolvedTheme} ${isDarkTheme(resolvedTheme) ? "is-dark" : ""} ${motionPaused ? "motion-paused" : ""} ${snapshot && active ? "has-inspector" : ""}`}
+      className={`app theme-${resolvedTheme} ${isDarkTheme(resolvedTheme) ? "is-dark" : ""} ${motionPaused ? "motion-paused" : ""} ${route === "dashboard" && snapshot && active ? "has-inspector" : ""} ${route === "home" ? "is-home" : ""}`}
     >
       <a className="skip-link" href="#explorer">
         Skip to content
       </a>
 
+      <input
+        ref={fileInput}
+        hidden
+        type="file"
+        accept=".json,application/json"
+        aria-label="Import investigation report"
+        onChange={importReport}
+        disabled={busy}
+      />
+      {route === "home" ? (
+        <Home
+          url={url}
+          setUrl={setUrl}
+          onScan={scan}
+          busy={busy}
+          progress={progress}
+          onCancel={() => controller.current?.abort()}
+          onDemo={loadDemo}
+          onImport={() => chooseReport("import")}
+          onPalette={() => setPaletteOpen(true)}
+          resume={
+            snapshot && origin !== "demo"
+              ? {
+                  repository: snapshot.repository,
+                  observedAt: snapshot.observedAt,
+                  label:
+                    origin === "cached"
+                      ? "Saved scan"
+                      : origin === "imported"
+                        ? "Imported report"
+                        : "Current scan",
+                }
+              : null
+          }
+          onResume={() => navigate("dashboard")}
+          history={history}
+          onPick={(repository) => {
+            setUrl(`https://github.com/${repository}`);
+            void scanFor(repository);
+          }}
+        />
+      ) : (
+      <>
       <aside className="sidebar" aria-label="Workspace">
-        <a className="brand" href="/" aria-label="Poltergeist Commits home">
+        <a className="brand" href="#/" aria-label="Poltergeist Commits home">
           <span className="brand-glyph">
             <Icon name="ghost" size={17} />
           </span>
@@ -566,33 +681,41 @@ export function App() {
           <label className="scan-label" htmlFor="repo-url">
             Public GitHub repository
           </label>
-          <input
-            id="repo-url"
-            type="text"
-            inputMode="url"
-            required
-            value={url}
-            onChange={(event) => setUrl(event.target.value)}
-            placeholder="owner/repo or full URL"
-            disabled={busy}
-            spellCheck={false}
-            autoComplete="off"
-          />
-          <div className="scan-actions">
-            <button className="btn btn-primary" disabled={busy}>
-              <Icon name={busy ? "loader" : "search"} size={15} className={busy ? "spin" : ""} />
-              {busy ? "Investigating…" : "Investigate"}
+          <div className="scan-field">
+            <input
+              id="repo-url"
+              type="text"
+              inputMode="url"
+              required
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="owner/repo or URL"
+              disabled={busy}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button className="scan-go" disabled={busy} title="Investigate">
+              <Icon
+                name={busy ? "loader" : "next"}
+                size={16}
+                className={busy ? "spin" : ""}
+              />
+              <span className="sr-only">{busy ? "Investigating…" : "Investigate"}</span>
             </button>
+          </div>
+          <p className="scan-alt">
+            or{" "}
             <button
               type="button"
               onClick={loadDemo}
               disabled={busy}
-              className="btn btn-plain"
+              className="link-btn"
+              title="Load a recorded scan of expressjs/express"
             >
-              <Icon name="demo" size={15} />
               Explore the demo
-            </button>
-          </div>
+            </button>{" "}
+            <span className="muted">· expressjs/express</span>
+          </p>
           {busy && (
             <p className="scan-progress">
               <Icon name="loader" size={14} className="spin" />
@@ -619,6 +742,15 @@ export function App() {
               {activePill(view === "overview")}
               <Icon name="home" size={16} />
               Overview
+            </button>
+            <button
+              className="nav-item"
+              aria-current={view === "people" ? "page" : undefined}
+              onClick={() => go("people")}
+            >
+              {activePill(view === "people")}
+              <Icon name="users" size={16} />
+              People
             </button>
             <button
               className="nav-item"
@@ -832,15 +964,6 @@ export function App() {
           </div>
           <p className="foot-line">Read-only · no tokens · every finding sourced</p>
         </div>
-        <input
-          ref={fileInput}
-          hidden
-          type="file"
-          accept=".json,application/json"
-          aria-label="Import investigation report"
-          onChange={importReport}
-          disabled={busy}
-        />
       </aside>
 
       <main className="main" id="explorer" tabIndex={-1}>
@@ -1044,7 +1167,19 @@ export function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
             >
-              {view === "issues" || view === "pulls" ? (
+              {view === "people" ? (
+                <People
+                  snapshot={snapshot}
+                  details={community.details}
+                  threads={community.issues}
+                  onLoadDetails={community.loadDetails}
+                  onLoadThreads={community.loadIssues}
+                  onOpenThread={(kind, number) => {
+                    setThreadFocus(number);
+                    setView(kind === "pull" ? "pulls" : "issues");
+                  }}
+                />
+              ) : view === "issues" || view === "pulls" ? (
                 <Issues
                   kind={view === "pulls" ? "pull" : "issue"}
                   focus={threadFocus}
@@ -1053,9 +1188,12 @@ export function App() {
                   comments={community.comments}
                   onLoad={community.loadIssues}
                   onLoadComments={community.loadComments}
+                  pulls={community.pulls}
+                  onLoadPull={community.loadPull}
                 />
               ) : view === "overview" ? (
                 <Overview
+                  onOpenPeople={() => go("people")}
                   threads={community.issues}
                   onLoadThreads={community.loadIssues}
                   onOpenThread={(kind, number) => {
@@ -1447,6 +1585,8 @@ export function App() {
         </motion.aside>
       )}
 
+      </>
+      )}
       <div className="toast-stack">
       <div className="toasts" role="status" aria-live="polite">
         {notice && (

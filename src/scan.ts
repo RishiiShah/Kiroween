@@ -26,9 +26,116 @@ export type Snapshot = {
   branchesInspected: number;
   commitsInspected: number;
   commitDates?: string[];
+  commits?: CommitRecord[];
+  meta?: RepoMeta;
   warnings: string[];
   requests: number;
 };
+export type CommitRecord = {
+  sha: string;
+  date: string;
+  author: string;
+  login: string | null;
+  avatarId: number | null;
+};
+export type RepoMeta = {
+  forks: number;
+  watchers: number;
+  openIssues: number;
+  license: string | null;
+  topics: string[];
+  createdAt: string | null;
+  pushedAt: string | null;
+  homepage: string | null;
+  archived: boolean;
+  language: string | null;
+};
+const LOGIN = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(\[bot\])?$/;
+const count = (value: unknown) =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
+const shortText = (value: unknown, max: number) =>
+  typeof value === "string" ? value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, max) || null : null;
+const dateOrNull = (value: unknown) =>
+  typeof value === "string" && Number.isFinite(Date.parse(value)) ? value : null;
+/** Only plain https homepages are kept; anything else is dropped rather than linked. */
+export function safeHomepage(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+export function readMeta(metadata: Record<string, unknown>): RepoMeta {
+  const license = metadata.license && typeof metadata.license === "object"
+    ? (metadata.license as Record<string, unknown>)
+    : null;
+  return {
+    forks: count(metadata.forks_count),
+    watchers: count(metadata.subscribers_count ?? metadata.watchers_count),
+    openIssues: count(metadata.open_issues_count),
+    license: shortText(license?.spdx_id, 40) ?? shortText(license?.name, 60),
+    topics: (Array.isArray(metadata.topics) ? metadata.topics : [])
+      .filter((topic): topic is string => typeof topic === "string" && /^[a-z0-9][a-z0-9-]{0,49}$/.test(topic))
+      .slice(0, 12),
+    createdAt: dateOrNull(metadata.created_at),
+    pushedAt: dateOrNull(metadata.pushed_at),
+    homepage: safeHomepage(metadata.homepage),
+    archived: metadata.archived === true,
+    language: shortText(metadata.language, 40),
+  };
+}
+export function readCommit(raw: Record<string, unknown>): CommitRecord {
+  const data = object(raw.commit);
+  const user = raw.author && typeof raw.author === "object" ? (raw.author as Record<string, unknown>) : null;
+  const login = typeof user?.login === "string" && LOGIN.test(user.login) ? user.login : null;
+  const id = typeof user?.id === "number" && Number.isInteger(user.id) && user.id > 0 ? user.id : null;
+  const gitAuthor = data.author && typeof data.author === "object" ? (data.author as Record<string, unknown>) : {};
+  return {
+    sha: sha(raw.sha),
+    date: isoDate(object(data.committer).date),
+    author: login ?? shortText(gitAuthor.name, 80) ?? "unknown",
+    login,
+    avatarId: id,
+  };
+}
+function validMeta(value: unknown): boolean {
+  if (value === undefined) return true;
+  const meta = object(value);
+  const nums = ["forks", "watchers", "openIssues"].every(
+    (key) => typeof meta[key] === "number" && (meta[key] as number) >= 0,
+  );
+  const nullableStrings = ["license", "createdAt", "pushedAt", "language"].every(
+    (key) => meta[key] === null || typeof meta[key] === "string",
+  );
+  return (
+    nums &&
+    nullableStrings &&
+    typeof meta.archived === "boolean" &&
+    (meta.homepage === null || safeHomepage(meta.homepage) === meta.homepage) &&
+    Array.isArray(meta.topics) &&
+    meta.topics.length <= 12 &&
+    meta.topics.every((topic) => typeof topic === "string" && /^[a-z0-9][a-z0-9-]{0,49}$/.test(topic))
+  );
+}
+function validCommits(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || value.length > LIMITS.commits) return false;
+  return value.every((raw) => {
+    const commit = object(raw);
+    return (
+      typeof commit.sha === "string" &&
+      /^[a-f0-9]{40,64}$/.test(commit.sha) &&
+      typeof commit.date === "string" &&
+      Number.isFinite(Date.parse(commit.date)) &&
+      typeof commit.author === "string" &&
+      commit.author.length <= 80 &&
+      (commit.login === null || (typeof commit.login === "string" && LOGIN.test(commit.login))) &&
+      (commit.avatarId === null || (typeof commit.avatarId === "number" && Number.isInteger(commit.avatarId) && commit.avatarId > 0))
+    );
+  });
+}
 export const LIMITS = {
   files: 2000,
   branches: 4,
@@ -503,6 +610,8 @@ export async function scanRepository(
     commitDates: commits.map((commit) =>
       isoDate(object(object(commit.commit).committer).date),
     ),
+    commits: commits.map(readCommit),
+    meta: readMeta(metadata),
     warnings,
     requests,
   };
@@ -559,6 +668,7 @@ export function isSnapshot(value: unknown): value is Snapshot {
         ))
     )
       return false;
+    if (!validMeta(item.meta) || !validCommits(item.commits)) return false;
     if (!Array.isArray(item.findings) || item.findings.length > 40)
       return false;
     const ids = new Set<string>();
