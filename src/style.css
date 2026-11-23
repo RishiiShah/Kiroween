@@ -41,7 +41,7 @@
   --shadow-pop: 0 12px 32px #1c1b1824, 0 0 0 1px var(--border);
   color-scheme: light;
 }
-.app.dark {
+.app.theme-dark {
   --canvas: #131215;
   --side: #0e0d10;
   --surface: #1a191d;
@@ -66,6 +66,119 @@
   color-scheme: dark;
 }
 
+.app.theme-halloween {
+  --canvas: #16111c;
+  --side: #110c16;
+  --surface: #1f1828;
+  --sunken: #1a1422;
+  --border: #352a42;
+  --border-strong: #4a3b5a;
+  --ink: #f5eefa;
+  --ink-2: #c9bcd6;
+  --ink-3: #968aa5;
+  --accent: #ff7a1a;
+  --accent-soft: #3a2212;
+  --accent-ink: #1d0b00;
+  --warn: #ff6b8b;
+  --warn-soft: #3a1622;
+  --ok: #9be35f;
+  --ok-soft: #1f2e17;
+  --z-activity: #9be35f;
+  --z-branches: #b493ff;
+  --z-unfinished: #ff7a1a;
+  --shadow: 0 0 0 1px var(--border);
+  --shadow-pop: 0 16px 40px #000c, 0 0 0 1px var(--border-strong);
+  color-scheme: dark;
+}
+.app.theme-midnight {
+  --canvas: #0d1420;
+  --side: #0a1019;
+  --surface: #121b2a;
+  --sunken: #0f1724;
+  --border: #1f2b3d;
+  --border-strong: #2c3b52;
+  --ink: #e6edf7;
+  --ink-2: #a9b7cb;
+  --ink-3: #74839a;
+  --accent: #4cc2ff;
+  --accent-soft: #10283a;
+  --accent-ink: #021320;
+  --warn: #ffb454;
+  --warn-soft: #33260f;
+  --ok: #5fd3a5;
+  --ok-soft: #0f2a22;
+  --z-activity: #5fd3a5;
+  --z-branches: #4cc2ff;
+  --z-unfinished: #ffb454;
+  --shadow: 0 0 0 1px var(--border);
+  --shadow-pop: 0 16px 40px #000c, 0 0 0 1px var(--border-strong);
+  color-scheme: dark;
+}
+.app.theme-contrast {
+  --canvas: #000000;
+  --side: #000000;
+  --surface: #0b0b0b;
+  --sunken: #161616;
+  --border: #9a9a9a;
+  --border-strong: #ffffff;
+  --ink: #ffffff;
+  --ink-2: #f2f2f2;
+  --ink-3: #d6d6d6;
+  --accent: #ffd60a;
+  --accent-soft: #2e2900;
+  --accent-ink: #000000;
+  --warn: #ffa64d;
+  --warn-soft: #2e1800;
+  --ok: #5ef08f;
+  --ok-soft: #062a12;
+  --z-activity: #5ef08f;
+  --z-branches: #8ccfff;
+  --z-unfinished: #ffa64d;
+  --shadow: 0 0 0 1px var(--border);
+  --shadow-pop: 0 0 0 2px var(--border-strong);
+  color-scheme: dark;
+}
+.theme-contrast :focus-visible {
+  outline: 3px solid var(--accent);
+}
+.theme-contrast .nav-item[aria-current="page"],
+.theme-contrast .trace.selected {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.theme-halloween .brand-glyph {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.theme-halloween .topline {
+  border-bottom-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+.theme-halloween .spark-bar:not(.is-empty) {
+  background: linear-gradient(180deg, var(--accent), #c2410c);
+}
+
+/* Theme picker */
+.theme-list {
+  display: grid;
+  gap: 1px;
+}
+.theme-option[aria-pressed="true"] {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--sunken);
+}
+.theme-option[aria-pressed="true"]::after {
+  content: "✓";
+  margin-left: auto;
+  color: var(--accent);
+}
+.theme-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px var(--border-strong);
+  flex-shrink: 0;
+}
+
 /* ============ Base ============ */
 * {
   box-sizing: border-box;
@@ -74,6 +187,7 @@ html,
 body {
   margin: 0;
   height: 100%;
+  background: #16111c;
 }
 body {
   overflow: hidden;
@@ -1092,12 +1206,12 @@ td a:hover {
 .lang-4 { background: #2f6db5; }
 .lang-5 { background: #b23a74; }
 .lang-6 { background: #8b867b; }
-.dark .lang-0 { background: #a08cf7; }
-.dark .lang-1 { background: #6cc596; }
-.dark .lang-2 { background: #f2995a; }
-.dark .lang-3 { background: #e7c35a; }
-.dark .lang-4 { background: #6ea8f0; }
-.dark .lang-5 { background: #e57ab0; }
+.is-dark .lang-0 { background: #a08cf7; }
+.is-dark .lang-1 { background: #6cc596; }
+.is-dark .lang-2 { background: #f2995a; }
+.is-dark .lang-3 { background: #e7c35a; }
+.is-dark .lang-4 { background: #6ea8f0; }
+.is-dark .lang-5 { background: #e57ab0; }
 .lang-legend {
   display: flex;
   flex-wrap: wrap;
@@ -1852,5 +1966,18 @@ textarea:focus {
     white-space: pre-wrap;
     border-left: 2px solid #777;
     padding-left: 10pt;
+  }
+}
+
+/* Menus that hold many options must fit the viewport */
+.menu-panel {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+@media (max-width: 900px) {
+  .menu-up .menu-panel {
+    top: calc(100% + 6px);
+    bottom: auto;
+    max-height: 70dvh;
   }
 }

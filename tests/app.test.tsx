@@ -258,8 +258,10 @@ describe("explorer interactions", () => {
       ?.getAttribute("href");
     await click("Close evidence");
     await expand("Settings");
-    await click("Dark theme");
-    expect(container.querySelector(".app.dark")).toBeTruthy();
+    expect(container.querySelector(".app.theme-halloween")).toBeTruthy();
+    await click("Dark");
+    expect(container.querySelector(".app.theme-dark")).toBeTruthy();
+    expect(localStorage.getItem("poltergeist.theme.v1")).toBe("dark");
     await openFirstTrace();
     expect(
       container.querySelector(".source-button")?.getAttribute("href"),
@@ -635,5 +637,26 @@ describe("explorer interactions", () => {
     await click("Load issues · 1 request");
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("limited");
     expect(container.querySelectorAll(".issue")).toHaveLength(0);
+  });
+
+  it("defaults to Halloween, restores saved themes, and ignores bad values", async () => {
+    localStorage.setItem("poltergeist.theme.v1", "midnight");
+    await mountRaw();
+    expect(container.querySelector(".app.theme-midnight")).toBeTruthy();
+    await expand("Settings");
+    await click("High contrast");
+    expect(container.querySelector(".app.theme-contrast.is-dark")).toBeTruthy();
+    await click("Light");
+    expect(container.querySelector(".app.theme-light")).toBeTruthy();
+    expect(container.querySelector(".app.is-dark")).toBeNull();
+    await click("Match system");
+    expect(container.querySelector(".app.theme-light")).toBeTruthy();
+    await click("Halloween");
+    expect(localStorage.getItem("poltergeist.theme.v1")).toBeNull();
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    localStorage.setItem("poltergeist.theme.v1", "<script>");
+    await mountRaw();
+    expect(container.querySelector(".app.theme-halloween")).toBeTruthy();
   });
 });

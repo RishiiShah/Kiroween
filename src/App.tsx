@@ -3,6 +3,17 @@ import { Issues } from "./Issues";
 import { useCommunity } from "./useCommunity";
 import { getQuota, subscribeQuota } from "./quota";
 import { toMarkdown } from "./markdown";
+import {
+  THEMES,
+  getPrefersDark,
+  isDarkTheme,
+  loadTheme,
+  resolveTheme,
+  saveTheme,
+  subscribeScheme,
+  themeCanvas,
+  type ThemeId,
+} from "./theme";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   isSnapshot,
@@ -132,7 +143,19 @@ export function App() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("review");
   const [selected, setSelected] = useState<string | null>(null);
-  const [neutral, setNeutral] = useState(false);
+  const [theme, setTheme] = useState<ThemeId>(loadTheme);
+  const prefersDark = useSyncExternalStore(
+    subscribeScheme,
+    getPrefersDark,
+    () => false,
+  );
+  const resolvedTheme = resolveTheme(theme, prefersDark);
+  useEffect(() => {
+    saveTheme(theme);
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", themeCanvas(resolvedTheme));
+  }, [theme, resolvedTheme]);
   const [motionPaused, setMotionPaused] = useState(false);
   const [comparison, setComparison] = useState<{
     baseline: Snapshot;
@@ -413,7 +436,7 @@ export function App() {
 
   return (
     <div
-      className={`app ${neutral ? "dark" : ""} ${motionPaused ? "motion-paused" : ""} ${snapshot && active ? "has-inspector" : ""}`}
+      className={`app theme-${resolvedTheme} ${isDarkTheme(resolvedTheme) ? "is-dark" : ""} ${motionPaused ? "motion-paused" : ""} ${snapshot && active ? "has-inspector" : ""}`}
     >
       <a className="skip-link" href="#explorer">
         Skip to content
@@ -605,15 +628,34 @@ export function App() {
                 {sound.enabled ? "Settings · sound on" : "Settings"}
               </summary>
               <div className="menu-panel">
-                <p className="menu-heading">Appearance</p>
-                <button
-                  className="menu-item"
-                  onClick={() => setNeutral(!neutral)}
-                  aria-pressed={neutral}
+                <p className="menu-heading" id="theme-heading">
+                  Theme
+                </p>
+                <div
+                  className="theme-list"
+                  role="group"
+                  aria-labelledby="theme-heading"
                 >
-                  <Icon name="sun" size={15} />
-                  {neutral ? "Light theme" : "Dark theme"}
-                </button>
+                  {THEMES.map((item) => (
+                    <button
+                      key={item.id}
+                      className="menu-item theme-option"
+                      aria-pressed={theme === item.id}
+                      onClick={() => setTheme(item.id)}
+                      title={item.note}
+                    >
+                      <span
+                        className="theme-swatch"
+                        aria-hidden="true"
+                        style={{
+                          background: `linear-gradient(135deg, ${item.canvas} 0 55%, ${item.accent} 55% 100%)`,
+                        }}
+                      />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="menu-heading">Motion</p>
                 <button
                   className="menu-item"
                   onClick={() => setMotionPaused(!motionPaused)}
