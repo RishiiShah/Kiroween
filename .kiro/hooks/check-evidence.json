@@ -1,0 +1,25 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Check source evidence and explorer behavior",
+      "trigger": "PostFileSave",
+      "matcher": "(src/.*\\.(ts|tsx)|public/demo-snapshot\\.json)$",
+      "action": {
+        "type": "command",
+        "command": "npm test"
+      },
+      "timeout": 60
+    },
+    {
+      "name": "Type-check and build after source edits",
+      "trigger": "PostFileSave",
+      "matcher": "src/.*\\.(ts|tsx|css)$",
+      "action": {
+        "type": "command",
+        "command": "npm run build"
+      },
+      "timeout": 90
+    }
+  ]
+}

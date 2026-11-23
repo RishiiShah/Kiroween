@@ -1,0 +1,34 @@
+[
+  {
+    "family": "Fraunces",
+    "style": "normal",
+    "file": "fraunces-normal-latin.woff2",
+    "bytes": 67388,
+    "source": "https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeP2Xz5c.woff2",
+    "license": "https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt"
+  },
+  {
+    "family": "Fraunces",
+    "style": "italic",
+    "file": "fraunces-italic-latin.woff2",
+    "bytes": 81704,
+    "source": "https://fonts.gstatic.com/s/fraunces/v38/6NU58FyLNQOQZAnv9ZwNjucMHVn85Ni7emAe9lKqZTnbB-gzTK0K1ChjeveQ7ZXk8g.woff2",
+    "license": "https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt"
+  },
+  {
+    "family": "Space Grotesk",
+    "style": "normal",
+    "file": "spacegrotesk-normal-latin.woff2",
+    "bytes": 22320,
+    "source": "https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2",
+    "license": "https://raw.githubusercontent.com/google/fonts/main/ofl/spacegrotesk/OFL.txt"
+  },
+  {
+    "family": "IBM Plex Mono",
+    "style": "normal",
+    "file": "ibmplexmono-normal-latin.woff2",
+    "bytes": 10016,
+    "source": "https://fonts.gstatic.com/s/ibmplexmono/v23/-F63fjptAgt5VM-kVkqdyU8n1i8q131nj-o.woff2",
+    "license": "https://raw.githubusercontent.com/google/fonts/main/ofl/ibmplexmono/OFL.txt"
+  }
+]
