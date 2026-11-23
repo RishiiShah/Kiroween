@@ -224,7 +224,7 @@ function sha(value: unknown): string {
     throw new Error("GitHub returned an invalid revision.");
   return result;
 }
-const encodedPath = (path: string) =>
+export const encodedPath = (path: string) =>
   path.split("/").map(encodeURIComponent).join("/");
 export function todoFindings(
   repository: string,

@@ -10,6 +10,15 @@ import {
   type IssueComment,
   type PullDetails,
 } from "./community";
+import {
+  fetchCommitDetail,
+  fetchGraph,
+  fetchInsights,
+  type BranchRef,
+  type CommitDetail,
+  type Graph,
+  type Insights,
+} from "./history";
 
 export type Loadable<T> = {
   status: "idle" | "loading" | "ready" | "error";
@@ -33,6 +42,9 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
   const [details, setDetails] = useState<Loadable<Details>>(idle);
   const [comments, setComments] = useState<Record<number, Loadable<CommentList>>>({});
   const [pulls, setPulls] = useState<Record<number, Loadable<PullDetails>>>({});
+  const [graph, setGraph] = useState<Loadable<Graph>>(idle);
+  const [insights, setInsights] = useState<Loadable<Insights>>(idle);
+  const [commits, setCommits] = useState<Record<string, Loadable<CommitDetail>>>({});
   const controller = useRef<AbortController | null>(null);
   const started = useRef<string | null>(null);
 
@@ -45,6 +57,9 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
     setDetails(idle);
     setComments({});
     setPulls({});
+    setGraph(idle);
+    setInsights(idle);
+    setCommits({});
     return () => own.abort();
   }, [repository]);
 
@@ -75,12 +90,15 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
     [run, repository],
   );
   const keyed =
-    <T,>(setAll: React.Dispatch<React.SetStateAction<Record<number, Loadable<T>>>>, number: number) =>
+    <T, K extends string | number>(
+      setAll: React.Dispatch<React.SetStateAction<Record<K, Loadable<T>>>>,
+      number: K,
+    ) =>
     (value: Loadable<T> | ((all: Loadable<T>) => Loadable<T>)) =>
       setAll((all) => ({
         ...all,
         [number]: typeof value === "function" ? value(all[number] ?? idle) : value,
-      }));
+      }) as Record<K, Loadable<T>>);
   const loadComments = useCallback(
     (number: number) =>
       run(keyed(setComments, number), (signal) => fetchComments(repository!, number, signal)),
@@ -89,6 +107,21 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
   const loadPull = useCallback(
     (number: number) =>
       run(keyed(setPulls, number), (signal) => fetchPullDetails(repository!, number, signal)),
+    [run, repository],
+  );
+
+  const loadGraph = useCallback(
+    (defaultBranch: string, branches: BranchRef[]) =>
+      run(setGraph, (signal) => fetchGraph(repository!, defaultBranch, branches, signal)),
+    [run, repository],
+  );
+  const loadInsights = useCallback(
+    () => run(setInsights, (signal) => fetchInsights(repository!, signal)),
+    [run, repository],
+  );
+  const loadCommit = useCallback(
+    (sha: string) =>
+      run(keyed(setCommits, sha), (signal) => fetchCommitDetail(repository!, sha, signal)),
     [run, repository],
   );
 
@@ -110,5 +143,11 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
     loadDetails,
     loadComments,
     loadPull,
+    graph,
+    insights,
+    commits,
+    loadGraph,
+    loadInsights,
+    loadCommit,
   };
 }

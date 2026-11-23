@@ -2,6 +2,16 @@ import { animate, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import {
   Activity,
+  Clock3,
+  FileDiff,
+  FileMinus,
+  FilePen,
+  FilePlus,
+  GitGraph,
+  GitMerge,
+  ShieldCheck,
+  Tag,
+  Spline,
   ArrowUpRight,
   Binoculars,
   BookOpen,
@@ -63,6 +73,15 @@ import { createContext, useContext } from "react";
 /** Semantic icon names. Each theme may draw a name differently; the meaning never changes. */
 const ICONS: Record<string, LucideIcon> = {
   activity: Activity,
+  clock: Clock3,
+  diff: FileDiff,
+  "file-add": FilePlus,
+  "file-del": FileMinus,
+  "file-edit": FilePen,
+  graph: GitGraph,
+  merge: GitMerge,
+  shield: ShieldCheck,
+  tag: Tag,
   alert: TriangleAlert,
   board: SquareKanban,
   branch: GitBranch,
@@ -121,6 +140,7 @@ const OVERRIDES: Record<IconSet, Record<string, LucideIcon>> = {
     palette: MoonStar,
   },
   midnight: {
+    graph: Spline,
     home: Telescope,
     pulse: Orbit,
     branch: Satellite,

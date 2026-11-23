@@ -925,12 +925,62 @@ describe("explorer interactions", () => {
     );
     await mountRaw();
     await click("People");
-    const text = container.querySelector(".people")?.textContent ?? "";
+    const text = container.querySelector(".people-view")?.textContent ?? "";
     expect(text).toContain("Fix the cellar door");
     expect(text).toContain("keeper");
     expect(text).toContain("ann");
-    const avatar = container.querySelector<HTMLImageElement>(".people img");
+    const avatar = container.querySelector<HTMLImageElement>(".people-view img");
     expect(avatar?.getAttribute("src")).toMatch(/^https:\/\/avatars\.githubusercontent\.com\/u\/\d+\?s=\d+&v=4$/);
     expect(avatar?.getAttribute("referrerpolicy")).toBe("no-referrer");
+  });
+
+  it("draws a commit graph with branch labels and loads one commit's files on selection", async () => {
+    const hex = (n: number) => n.toString(16).padStart(40, "0");
+    const commit = (n: number, parents: number[], message: string) => ({
+      sha: hex(n),
+      parents: parents.map((p) => ({ sha: hex(p) })),
+      author: { login: "ann", id: 4 },
+      commit: { message, author: { name: "Ann" }, committer: { date: `2026-11-${String(10 + n).padStart(2, "0")}T00:00:00Z` } },
+    });
+    const branchTip = demo.findings.find((f) => f.zone === "branches")!.source.split("/commit/")[1];
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        calls.push(input);
+        if (input.includes(`/commits?sha=${branchTip}`))
+          return new Response(JSON.stringify([{ ...commit(9, [1], "feat: side quest"), sha: branchTip }]));
+        if (input.includes("/commits?sha="))
+          return new Response(JSON.stringify([commit(3, [2, 1], "Merge pull request #1"), commit(2, [1], "fix: hinge"), commit(1, [], "docs: start")]));
+        if (input.includes(`/commits/${hex(3)}`))
+          return new Response(JSON.stringify({ commit: { message: "Merge pull request #1\n\nfrom ann/hinge" }, stats: { additions: 4, deletions: 1 }, files: [{ filename: "lib/door.js", status: "modified", additions: 4, deletions: 1 }] }));
+        if (input.includes("/stats/punch_card")) return new Response(JSON.stringify([[1, 9, 3]]));
+        if (input.includes("/stats/code_frequency")) return new Response(JSON.stringify([[1700000000, 10, -2]]));
+        return new Response(JSON.stringify(input.includes("api.github.com") ? [] : demo));
+      }),
+    );
+    await mountRaw();
+    await click("Commits");
+    const rows = container.querySelectorAll(".graph-row");
+    expect(rows).toHaveLength(4);
+    expect(container.querySelector(".ref-head")?.textContent).toContain(demo.defaultBranch);
+    expect(container.querySelectorAll(".node.is-merge")).toHaveLength(1);
+    expect(calls.filter((c) => c.includes("/commits?sha="))).toHaveLength(1 + Math.min(4, demo.findings.filter((f) => f.zone === "branches").length));
+    const merge = [...container.querySelectorAll<HTMLButtonElement>(".graph-hit")].find((b) =>
+      b.textContent?.includes("Merge pull request"),
+    )!;
+    await act(async () => merge.click());
+    expect(calls.filter((c) => c.includes(`/commits/${hex(3)}`))).toHaveLength(1);
+    expect(container.querySelector(".file-path")?.getAttribute("href")).toBe(
+      `https://github.com/expressjs/express/blob/${hex(3)}/lib/door.js`,
+    );
+    expect(container.querySelector(".commit-body")?.textContent).toContain("from ann/hinge");
+    expect(container.querySelectorAll(".punch-dot")).toHaveLength(1);
+    const search = container.querySelector<HTMLInputElement>('[aria-label="Highlight commits"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "hinge");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(container.querySelectorAll(".graph-row:not(.is-dim)")).toHaveLength(1);
   });
 });

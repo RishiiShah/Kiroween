@@ -1,6 +1,8 @@
 import { Overview } from "./Overview";
 import { Issues } from "./Issues";
 import { People } from "./People";
+import { Commits } from "./Commits";
+import { branchRefs } from "./history";
 import { Home, type HistoryEntry } from "./Home";
 import { useCommunity } from "./useCommunity";
 import { getQuota, subscribeQuota } from "./quota";
@@ -73,12 +75,12 @@ export function App() {
   const [origin, setOrigin] = useState<"demo" | "live" | "cached" | "imported">(
     "demo",
   );
-  const [url, setUrl] = useState("https://github.com/expressjs/express");
+  const [url, setUrl] = useState("expressjs/express");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [view, setView] = useState<"overview" | "people" | "issues" | "pulls" | "map" | "table">("overview");
+  const [view, setView] = useState<"overview" | "commits" | "people" | "issues" | "pulls" | "map" | "table">("overview");
   const [zone, setZone] = useState<Zone | "all">("all");
   const [status, setStatus] = useState("all");
   const [query, setQuery] = useState("");
@@ -189,7 +191,7 @@ export function App() {
       const cached: unknown = JSON.parse(localStorage.getItem(CACHE) || "null");
       if (isSnapshot(cached)) {
         show(cached, "cached");
-        setUrl(`https://github.com/${cached.repository}`);
+        setUrl(cached.repository);
         restored = true;
       }
     } catch {
@@ -275,6 +277,7 @@ export function App() {
     try {
       const data = await scanRepository(target, abort.signal, setProgress);
       show(data, "live");
+      setUrl(data.repository);
       remember(data);
       navigate("dashboard");
       sound.cue(true);
@@ -365,7 +368,7 @@ export function App() {
       review.merge(report.reviews);
       show(report.snapshot, "imported");
       navigate("dashboard");
-      setUrl(`https://github.com/${report.snapshot.repository}`);
+      setUrl(report.snapshot.repository);
       setNotice("Report imported offline. Existing local notes are preserved.");
       try {
         localStorage.setItem(CACHE, JSON.stringify(report.snapshot));
@@ -445,6 +448,7 @@ export function App() {
   const VIEW_TITLES = {
     overview: "Overview",
     people: "People",
+    commits: "Commits",
     issues: "Issues",
     pulls: "Pull requests",
     map: "Findings",
@@ -516,6 +520,7 @@ export function App() {
             { id: "go-home", label: "Home page", icon: "ghost", onSelect: () => navigate("home") },
             { id: "go-overview", label: "Overview", icon: "home", onSelect: () => { navigate("dashboard"); go("overview"); } },
             { id: "go-people", label: "People", icon: "users", onSelect: () => { navigate("dashboard"); go("people"); } },
+            { id: "go-commits", label: "Commit graph", icon: "graph", onSelect: () => { navigate("dashboard"); go("commits"); } },
             { id: "go-issues", label: "Issues", icon: "issue", onSelect: () => { navigate("dashboard"); go("issues"); } },
             { id: "go-pulls", label: "Pull requests", icon: "pull", onSelect: () => { navigate("dashboard"); go("pulls"); } },
             { id: "go-findings", label: "All findings", icon: "board", onSelect: () => { navigate("dashboard"); go("map"); } },
@@ -647,7 +652,7 @@ export function App() {
           onResume={() => navigate("dashboard")}
           history={history}
           onPick={(repository) => {
-            setUrl(`https://github.com/${repository}`);
+            setUrl(repository);
             void scanFor(repository);
           }}
         />
@@ -713,8 +718,7 @@ export function App() {
               title="Load a recorded scan of expressjs/express"
             >
               Explore the demo
-            </button>{" "}
-            <span className="muted">· expressjs/express</span>
+            </button>
           </p>
           {busy && (
             <p className="scan-progress">
@@ -751,6 +755,16 @@ export function App() {
               {activePill(view === "people")}
               <Icon name="users" size={16} />
               People
+            </button>
+            <button
+              className="nav-item"
+              aria-current={view === "commits" ? "page" : undefined}
+              onClick={() => go("commits")}
+              data-count={community.graph.status === "loading" ? "…" : community.graph.data?.commits.length}
+            >
+              {activePill(view === "commits")}
+              <Icon name="graph" size={16} />
+              Commits
             </button>
             <button
               className="nav-item"
@@ -1167,7 +1181,18 @@ export function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
             >
-              {view === "people" ? (
+              {view === "commits" ? (
+                <Commits
+                  snapshot={snapshot}
+                  auto={origin !== "imported"}
+                  graph={community.graph}
+                  insights={community.insights}
+                  commits={community.commits}
+                  onLoadGraph={() => void community.loadGraph(snapshot.defaultBranch, branchRefs(snapshot))}
+                  onLoadInsights={() => void community.loadInsights()}
+                  onLoadCommit={(sha) => void community.loadCommit(sha)}
+                />
+              ) : view === "people" ? (
                 <People
                   snapshot={snapshot}
                   details={community.details}
@@ -1194,6 +1219,7 @@ export function App() {
               ) : view === "overview" ? (
                 <Overview
                   onOpenPeople={() => go("people")}
+                  onOpenCommits={() => go("commits")}
                   threads={community.issues}
                   onLoadThreads={community.loadIssues}
                   onOpenThread={(kind, number) => {

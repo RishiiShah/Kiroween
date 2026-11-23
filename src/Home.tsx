@@ -78,18 +78,19 @@ export function Home(props: Props) {
         <nav className="home-links" aria-label="Home">
           <a href="#features">Features</a>
           <a href="#limits">What it reads</a>
-          <button className="palette-trigger compact" onClick={onPalette}>
-            <Icon name="command" size={14} />
+          <button className="palette-trigger compact" onClick={onPalette} aria-label="Open command palette">
+            <span className="muted">Jump to</span>
             <Kbd>{isMac() ? "⌘K" : "Ctrl K"}</Kbd>
           </button>
-          <button className="btn btn-plain" onClick={onImport}>
+          <button className="btn btn-plain" onClick={onImport} aria-label="Import report">
             <Icon name="upload" size={15} />
-            Import report
+            <span className="hide-sm">Import report</span>
           </button>
         </nav>
       </header>
 
       <main className="home-main" id="explorer" tabIndex={-1}>
+        <div className="hero-wrap">
         <section className="hero-block" aria-labelledby="home-title">
           <motion.p className="eyebrow hero-eyebrow" {...fade(0)}>
             <Icon name="ghost" size={13} /> Kiroween repository field guide
@@ -141,6 +142,8 @@ export function Home(props: Props) {
             </motion.p>
           )}
         </section>
+        <HeroArt />
+        </div>
 
         {(resume || history.length > 0) && (
           <motion.section className="home-recent" aria-labelledby="recent-title" {...fade(0.3)}>
@@ -239,6 +242,68 @@ export function Home(props: Props) {
         </span>
         <span className="muted">Free tools · read-only · real evidence</span>
       </footer>
+    </div>
+  );
+}
+
+/** Decorative commit graph: a main line, a merged feature branch, and one branch that went quiet. */
+function HeroArt() {
+  const draw = (delay: number) => ({
+    initial: { pathLength: 0, opacity: 0 },
+    animate: { pathLength: 1, opacity: 1 },
+    transition: { delay, duration: 1.1, ease: [0.65, 0, 0.35, 1] as const },
+  });
+  const pop = (delay: number) => ({
+    initial: { scale: 0, opacity: 0 },
+    animate: { scale: 1, opacity: 1 },
+    transition: { delay, type: "spring" as const, stiffness: 420, damping: 22 },
+  });
+  const main = [60, 120, 180, 240, 300, 360];
+  return (
+    <div className="hero-art" aria-hidden="true">
+      <svg viewBox="0 0 420 420" width="100%" height="100%">
+        <defs>
+          <linearGradient id="fade-branch" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" className="stop-quiet-a" />
+            <stop offset="100%" className="stop-quiet-b" />
+          </linearGradient>
+        </defs>
+        <motion.path d="M70 40 L70 405" className="art-line art-main" {...draw(0.2)} />
+        <motion.path d="M70 150 C70 180 150 180 150 210 L150 290 C150 320 70 320 70 350" className="art-line art-feature" {...draw(0.7)} />
+        <motion.path d="M70 90 C70 120 240 110 240 150 L240 250" className="art-line art-quiet" {...draw(1.1)} />
+        {[90, 150, 210, 270, 390].map((y, i) => (
+          <motion.circle key={y} cx={70} cy={y} r={7} className="art-node" {...pop(0.35 + i * 0.12)} />
+        ))}
+        <motion.circle cx={70} cy={350} r={9} className="art-node is-merge" {...pop(1.6)} />
+        {[210, 250, 290].map((y, i) => (
+          <motion.circle key={y} cx={150} cy={y} r={6.5} className="art-node art-node-feature" {...pop(1 + i * 0.12)} />
+        ))}
+        {[150, 200].map((y, i) => (
+          <motion.circle key={y} cx={240} cy={y} r={6.5} className="art-node art-node-quiet" {...pop(1.4 + i * 0.12)} />
+        ))}
+        <motion.g {...pop(1.9)}>
+          <rect x={86} y={28} width={74} height={24} rx={12} className="art-tag art-tag-main" />
+          <text x={123} y={44} textAnchor="middle" className="art-tag-text">master</text>
+        </motion.g>
+        <motion.g {...pop(2.1)}>
+          <rect x={166} y={278} width={112} height={24} rx={12} className="art-tag art-tag-feature" />
+          <text x={222} y={294} textAnchor="middle" className="art-tag-text">feature merged</text>
+        </motion.g>
+        <motion.g {...pop(2.3)}>
+          <rect x={256} y={137} width={136} height={26} rx={13} className="art-tag art-tag-quiet" />
+          <text x={324} y={154} textAnchor="middle" className="art-tag-text">quiet for 801 days</text>
+        </motion.g>
+        <motion.g
+          className="art-ghost"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: [0, 1, 1], y: [10, 0, -6, 0] }}
+          transition={{ delay: 2.4, duration: 3, ease: "easeInOut" }}
+        >
+          <path d="M284 236 v-30 a26 26 0 0 1 52 0 v30 l-9 -7 -9 7 -8 -7 -8 7 -9 -7 z" />
+          <circle cx={300} cy={208} r={3.5} className="art-eye" />
+          <circle cx={318} cy={208} r={3.5} className="art-eye" />
+        </motion.g>
+      </svg>
     </div>
   );
 }

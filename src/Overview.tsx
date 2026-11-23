@@ -38,6 +38,7 @@ type Props = {
   onLoadThreads: () => void;
   onOpenThread: (kind: Issue["kind"], number: number) => void;
   onOpenPeople?: () => void;
+  onOpenCommits?: () => void;
 };
 
 function Block({
@@ -79,6 +80,7 @@ export function Overview({
   onLoadThreads,
   onOpenThread,
   onOpenPeople = () => {},
+  onOpenCommits = () => {},
 }: Props) {
   const attention = snapshot.findings.filter((finding) => finding.severity === "review");
   const dates = commitDates(snapshot);
@@ -221,7 +223,7 @@ export function Overview({
                 <p className="legend">
                   <span><i className="legend-swatch kind-pull" /> Pull requests</span>
                   <span><i className="legend-swatch kind-issue" /> Issues</span>
-                  <span className="muted">Faded bars: quiet 90+ days</span>
+                  <span className="muted">Dashed area: not updated in 90+ days</span>
                 </p>
               </div>
             ) : (
@@ -284,7 +286,12 @@ export function Overview({
             ) : (
               <p className="block-empty">No commit dates were captured in this snapshot.</p>
             )}
-            <p className="fine">Activity alone does not establish repository health.</p>
+            <p className="fine activity-foot">
+              Activity alone does not establish repository health.
+              <button className="link-btn" onClick={onOpenCommits}>
+                <Icon name="graph" size={13} /> Open the commit graph
+              </button>
+            </p>
           </div>
         </Block>
 

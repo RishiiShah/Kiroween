@@ -3,7 +3,9 @@ import { scaleBand, scaleLinear, scaleTime } from "d3-scale";
 import { arc, area, curveMonotoneX, pie } from "d3-shape";
 import { motion } from "motion/react";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { scaleQuantize } from "d3-scale";
+import { scaleQuantize, scaleSqrt, scaleSymlog } from "d3-scale";
+import { bisector } from "d3-array";
+import type { CodeWeek, Punch } from "./history";
 import type { Release, Week } from "./community";
 import type { AgeBucket, BranchAge } from "./activity";
 
@@ -83,26 +85,33 @@ export function Donut({
   return (
     <figure className="chart donut">
       <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img" aria-label={label}>
-        <motion.g
-          transform={`translate(${radius} ${radius})`}
-          initial={{ opacity: 0, rotate: -30, scale: 0.94 }}
-          animate={{ opacity: 1, rotate: 0, scale: 1 }}
-          transition={{ duration: 0.7, ease: EASE }}
+        <g transform={`translate(${radius} ${radius})`}>
+          <circle r={radius * 0.83} className="donut-track" />
+          {total === 0
+            ? null
+            : arcs.map((slice, index) => (
+                <motion.path
+                  key={slice.data.key}
+                  d={shape(slice) ?? ""}
+                  className={`donut-slice ${slice.data.className}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.08 * index, duration: 0.45, ease: EASE }}
+                >
+                  <title>{`${slice.data.label}: ${slice.data.value}`}</title>
+                </motion.path>
+              ))}
+        </g>
+        <text
+          x={radius}
+          y={radius + (center.length > 5 ? 1 : 2)}
+          className="donut-center"
+          textAnchor="middle"
+          style={{ fontSize: center.length > 7 ? 15 : center.length > 4 ? 19 : 30 }}
         >
-          {total === 0 ? (
-            <circle r={radius * 0.83} className="donut-empty" />
-          ) : (
-            arcs.map((slice) => (
-              <path key={slice.data.key} d={shape(slice) ?? ""} className={`donut-slice ${slice.data.className}`}>
-                <title>{`${slice.data.label}: ${slice.data.value}`}</title>
-              </path>
-            ))
-          )}
-        </motion.g>
-        <text x={radius} y={radius - 2} className="donut-center" textAnchor="middle">
           {center}
         </text>
-        <text x={radius} y={radius + 16} className="donut-caption" textAnchor="middle">
+        <text x={radius} y={radius + 20} className="donut-caption" textAnchor="middle">
           {caption}
         </text>
       </svg>
@@ -124,7 +133,8 @@ export function BranchAgeChart({
   const row = 30;
   const left = Math.min(150, Math.max(90, width * 0.32));
   const right = 46;
-  const height = branches.length * row + 26;
+  const top = 18;
+  const height = top + branches.length * row + 24;
   const x = scaleLinear()
     .domain([0, Math.max(threshold * 1.25, max(branches, (b) => b.days) ?? 0)])
     .range([left, width - right])
@@ -143,14 +153,14 @@ export function BranchAgeChart({
       >
         {x.ticks(4).map((tick) => (
           <g key={tick} transform={`translate(${x(tick)} 0)`}>
-            <line y1={0} y2={height - 20} className="grid" />
+            <line y1={top - 4} y2={height - 20} className="grid" />
             <text y={height - 6} textAnchor="middle" className="tick">
               {tick}d
             </text>
           </g>
         ))}
         {branches.map((branch, index) => {
-          const y = index * row + 4;
+          const y = top + index * row;
           const quiet = branch.days >= threshold;
           return (
             <g
@@ -184,9 +194,9 @@ export function BranchAgeChart({
           );
         })}
         <g transform={`translate(${x(threshold)} 0)`}>
-          <line y1={0} y2={height - 20} className="threshold" />
-          <text y={height - 6} x={4} className="threshold-label">
-            {threshold}d review
+          <line y1={top - 4} y2={height - 20} className="threshold" />
+          <text y={10} textAnchor="middle" className="threshold-label">
+            {threshold}-day review line
           </text>
         </g>
       </svg>
@@ -208,9 +218,10 @@ export function AgeHistogram({
   const [ref, width] = useWidth<HTMLDivElement>();
   const bottom = 24;
   const top = 12;
+  const left = 26;
   const x = scaleBand()
     .domain(buckets.map((b) => b.label))
-    .range([0, width])
+    .range([left, width])
     .paddingInner(0.28)
     .paddingOuter(0.05);
   const totals = buckets.map((b) => kinds.reduce((sum, kind) => sum + b[kind], 0));
@@ -227,12 +238,29 @@ export function AgeHistogram({
       <svg width={width} height={height} role="img" aria-label={`Open threads by time since last update. ${label}.`}>
         {y.ticks(3).map((tick) => (
           <g key={tick} transform={`translate(0 ${y(tick)})`}>
-            <line x1={0} x2={width} className="grid" />
-            <text x={0} y={-3} className="tick">
+            <line x1={left} x2={width} className="grid" />
+            <text x={left - 6} y={3} textAnchor="end" className="tick">
               {tick}
             </text>
           </g>
         ))}
+        {(() => {
+          const quiet = buckets.filter((b) => b.quiet);
+          if (!quiet.length) return null;
+          const start = (x(quiet[0].label) ?? 0) - (x.step() * x.paddingInner()) / 2;
+          const end = Math.min(
+            width - 1,
+            (x(quiet[quiet.length - 1].label) ?? 0) + x.bandwidth() + (x.step() * x.paddingInner()) / 2,
+          );
+          return (
+            <g className="quiet-band">
+              <rect x={start} y={top - 8} width={end - start} height={height - bottom - top + 8} rx={6} />
+              <text x={end - 6} y={top + 4} textAnchor="end">
+                quiet 90+ days
+              </text>
+            </g>
+          );
+        })()}
         {buckets.map((bucket, index) => {
           let base = height - bottom;
           return (
@@ -379,7 +407,7 @@ export function CommitTimeline({
         ))}
         <g transform={`translate(${x(end)} 0)`}>
           <line y1={top} y2={height - bottom} className="threshold" />
-          <text y={top - 3} textAnchor="end" className="threshold-label">
+          <text x={-5} y={top + 9} textAnchor="end" className="threshold-label">
             scan
           </text>
         </g>
@@ -396,7 +424,7 @@ export function CalendarHeatmap({ weeks }: { weeks: Week[] }) {
   const left = 26;
   const top = 16;
   const gap = 3;
-  const cell = Math.max(6, Math.min(14, Math.floor((width - left) / weeks.length) - gap));
+  const cell = Math.max(6, Math.min(20, Math.floor((width - left) / weeks.length) - gap));
   const height = top + 7 * (cell + gap) + 4;
   const peak = Math.max(1, ...weeks.flatMap((week) => week.days));
   const level = scaleQuantize<number>().domain([1, peak]).range([1, 2, 3, 4]);
@@ -406,8 +434,10 @@ export function CalendarHeatmap({ weeks }: { weeks: Week[] }) {
   weeks.forEach((week, index) => {
     const date = new Date(week.week);
     const label = date.toLocaleDateString(undefined, { month: "short" });
-    if (!months.length || months[months.length - 1].label !== label)
-      if (date.getUTCDate() <= 7 || !months.length) months.push({ x: left + index * (cell + gap), label });
+    const x = left + index * (cell + gap);
+    const previous = months[months.length - 1];
+    if ((!previous || previous.label !== label) && date.getUTCDate() <= 7 && (!previous || x - previous.x > 34))
+      months.push({ x, label });
   });
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return (
@@ -474,8 +504,8 @@ export function CalendarHeatmap({ weeks }: { weeks: Week[] }) {
 export function ReleaseTimeline({ releases, observedAt }: { releases: Release[]; observedAt: string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const tip = useTip();
-  const height = 120;
-  const axis = 70;
+  const height = 130;
+  const axis = 100;
   const items = [...releases].sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt));
   if (!items.length) return null;
   const end = new Date(Math.max(Date.parse(observedAt), Date.parse(items[items.length - 1].publishedAt)));
@@ -483,6 +513,17 @@ export function ReleaseTimeline({ releases, observedAt }: { releases: Release[];
   const x = scaleTime().domain([start, end]).range([16, width - 16]);
   const gaps = items.slice(1).map((r, i) => (Date.parse(r.publishedAt) - Date.parse(items[i].publishedAt)) / 86400000);
   const median = gaps.length ? [...gaps].sort((a, b) => a - b)[Math.floor(gaps.length / 2)] : null;
+  // Greedy label placement: up to 3 stacked levels; a label is hidden (tooltip only) if no level has room.
+  const lastAt = [-Infinity, -Infinity, -Infinity];
+  const levels: number[] = [];
+  const showLabel: boolean[] = [];
+  for (const release of items) {
+    const cx = x(new Date(release.publishedAt));
+    const level = lastAt.findIndex((at) => cx - at > 62);
+    levels.push(level === -1 ? 0 : level);
+    showLabel.push(level !== -1);
+    if (level !== -1) lastAt[level] = cx;
+  }
   return (
     <div className="chart" ref={ref} onMouseLeave={tip.hide}>
       <svg
@@ -499,8 +540,7 @@ export function ReleaseTimeline({ releases, observedAt }: { releases: Release[];
         ))}
         {items.map((release, index) => {
           const cx = x(new Date(release.publishedAt));
-          const up = index % 2 === 0;
-          const stem = up ? 28 : 18;
+          const stem = levels[index] * 20 + 16;
           return (
             <motion.g
               key={release.tag}
@@ -517,11 +557,13 @@ export function ReleaseTimeline({ releases, observedAt }: { releases: Release[];
             >
               <line x1={cx} x2={cx} y1={axis} y2={axis - stem} className="release-stem" />
               <circle cx={cx} cy={axis - stem} r={5} className="release-dot" />
-              <a href={release.url} target="_blank" rel="noreferrer">
-                <text x={cx} y={axis - stem - 9} textAnchor="middle" className="release-label">
-                  {release.tag.length > 14 ? `${release.tag.slice(0, 13)}…` : release.tag}
-                </text>
-              </a>
+              {showLabel[index] && (
+                <a href={release.url} target="_blank" rel="noreferrer">
+                  <text x={cx} y={axis - stem - 9} textAnchor="middle" className="release-label">
+                    {release.tag.length > 12 ? `${release.tag.slice(0, 11)}…` : release.tag}
+                  </text>
+                </a>
+              )}
             </motion.g>
           );
         })}
@@ -558,13 +600,16 @@ export function RankBars({ rows, unit, label }: { rows: RankRow[]; unit: string;
                 {row.label.slice(0, 1).toUpperCase()}
               </span>
             )}
-            {row.href ? (
-              <a href={row.href} target="_blank" rel="noreferrer">
-                {row.label}
-              </a>
-            ) : (
-              <span>{row.label}</span>
-            )}
+            <span className="rank-names">
+              {row.href ? (
+                <a href={row.href} target="_blank" rel="noreferrer">
+                  {row.label}
+                </a>
+              ) : (
+                <span>{row.label}</span>
+              )}
+              {row.detail && <small className="rank-detail">{row.detail}</small>}
+            </span>
           </span>
           <span className="rank-track" aria-hidden="true">
             <motion.span
@@ -574,12 +619,176 @@ export function RankBars({ rows, unit, label }: { rows: RankRow[]; unit: string;
               transition={{ delay: index * 0.03, duration: 0.6, ease: EASE }}
             />
           </span>
-          <span className="rank-value">
-            {row.value.toLocaleString()} <span className="muted">{unit}</span>
-            {row.detail && <span className="rank-detail">{row.detail}</span>}
+          <span className="rank-value" title={`${row.value.toLocaleString()} ${unit}`}>
+            {row.value.toLocaleString()}
+            <span className="rank-unit"> {unit}</span>
           </span>
         </li>
       ))}
     </ol>
+  );
+}
+
+/* ---------------- Code frequency (additions / deletions per week) ---------------- */
+export function CodeFrequency({ weeks }: { weeks: CodeWeek[] }) {
+  const [ref, width] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<number | null>(null);
+  const height = 190;
+  const top = 12;
+  const bottom = 22;
+  const left = 44;
+  const data = weeks.map((week) => ({ ...week, date: new Date(week.week) }));
+  if (!data.length) return null;
+  const x = scaleTime()
+    .domain([data[0].date, data[data.length - 1].date])
+    .range([left, width - 8]);
+  const peak = Math.max(1, ...data.map((d) => Math.max(d.additions, d.deletions)));
+  const y = scaleSymlog().domain([-peak, peak]).range([height - bottom, top]).constant(10);
+  const adds = area<(typeof data)[number]>()
+    .x((d) => x(d.date))
+    .y0(y(0))
+    .y1((d) => y(d.additions))
+    .curve(curveMonotoneX);
+  const dels = area<(typeof data)[number]>()
+    .x((d) => x(d.date))
+    .y0(y(0))
+    .y1((d) => y(-d.deletions))
+    .curve(curveMonotoneX);
+  const ticks = [peak, Math.round(peak / 10), 0, -Math.round(peak / 10), -peak].filter(
+    (value, index, all) => all.indexOf(value) === index && Math.abs(value) >= 0,
+  );
+  const fmt = (value: number) =>
+    Math.abs(value) >= 1000 ? `${Math.round(Math.abs(value) / 100) / 10}k` : String(Math.abs(value));
+  const totalAdd = data.reduce((sum, d) => sum + d.additions, 0);
+  const totalDel = data.reduce((sum, d) => sum + d.deletions, 0);
+  const point = hover === null ? null : data[hover];
+  const find = bisector<(typeof data)[number], Date>((d) => d.date).center;
+  return (
+    <div className="chart" ref={ref}>
+      <svg
+        width={width}
+        height={height}
+        role="img"
+        aria-label={`Lines changed per week over ${data.length} weeks: ${totalAdd.toLocaleString()} added, ${totalDel.toLocaleString()} removed. Symmetric log scale.`}
+        onMouseMove={(event) => {
+          const box = (event.currentTarget as SVGSVGElement).getBoundingClientRect();
+          setHover(find(data, x.invert(event.clientX - box.left)));
+        }}
+        onMouseLeave={() => setHover(null)}
+      >
+        {ticks.map((tick) => (
+          <g key={tick} transform={`translate(0 ${y(tick)})`}>
+            <line x1={left} x2={width - 8} className={tick === 0 ? "axis" : "grid"} />
+            <text x={left - 6} y={3} textAnchor="end" className="tick">
+              {tick > 0 ? "+" : tick < 0 ? "−" : ""}
+              {fmt(tick)}
+            </text>
+          </g>
+        ))}
+        {x.ticks(Math.max(3, Math.round(width / 120))).map((tick) => (
+          <text key={+tick} x={x(tick)} y={height - 6} textAnchor="middle" className="tick">
+            {tick.toLocaleDateString(undefined, { month: "short", year: "2-digit" })}
+          </text>
+        ))}
+        <motion.path
+          d={adds(data) ?? ""}
+          className="freq-add"
+          initial={{ opacity: 0, scaleY: 0 }}
+          animate={{ opacity: 1, scaleY: 1 }}
+          style={{ originY: `${y(0)}px` }}
+          transition={{ duration: 0.7, ease: EASE }}
+        />
+        <motion.path
+          d={dels(data) ?? ""}
+          className="freq-del"
+          initial={{ opacity: 0, scaleY: 0 }}
+          animate={{ opacity: 1, scaleY: 1 }}
+          style={{ originY: `${y(0)}px` }}
+          transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
+        />
+        {point && (
+          <g className="freq-guide">
+            <line x1={x(point.date)} x2={x(point.date)} y1={top} y2={height - bottom} />
+            <circle cx={x(point.date)} cy={y(point.additions)} r={3.5} className="dot-add" />
+            <circle cx={x(point.date)} cy={y(-point.deletions)} r={3.5} className="dot-del" />
+          </g>
+        )}
+      </svg>
+      {point && (
+        <div
+          className="chart-tip"
+          style={{ left: x(point.date), top: Math.min(y(point.additions), height - bottom - 30) }}
+          aria-hidden="true"
+        >
+          Week of {point.date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+          {" · "}
+          <span className="tip-add">+{point.additions.toLocaleString()}</span>{" "}
+          <span className="tip-del">−{point.deletions.toLocaleString()}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Punch card (day × hour) ---------------- */
+export function PunchCard({ punches }: { punches: Punch[] }) {
+  const [ref, width] = useWidth<HTMLDivElement>();
+  const tip = useTip();
+  const left = 34;
+  const top = 6;
+  const cell = Math.max(12, Math.min(30, (width - left) / 24));
+  const height = top + 7 * cell + 20;
+  const peak = Math.max(1, ...punches.map((p) => p.count));
+  const r = scaleSqrt().domain([0, peak]).range([0, cell * 0.46]);
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const busiest = punches.reduce((best, p) => (p.count > best.count ? p : best), punches[0] ?? { day: 0, hour: 0, count: 0 });
+  const total = punches.reduce((sum, p) => sum + p.count, 0);
+  return (
+    <div className="chart" ref={ref} onMouseLeave={tip.hide}>
+      <svg
+        width={Math.min(width, left + 24 * cell)}
+        height={height}
+        role="img"
+        aria-label={`${total.toLocaleString()} commits by weekday and hour; busiest slot ${days[busiest.day]} ${busiest.hour}:00 with ${busiest.count}.`}
+      >
+        {days.map((day, index) => (
+          <text key={day} x={0} y={top + index * cell + cell / 2 + 4} className="tick">
+            {day}
+          </text>
+        ))}
+        {[0, 6, 12, 18, 23].map((hour) => (
+          <text key={hour} x={left + hour * cell + cell / 2} y={height - 4} textAnchor="middle" className="tick">
+            {hour === 0 ? "12a" : hour === 12 ? "12p" : hour < 12 ? `${hour}a` : `${hour - 12}p`}
+          </text>
+        ))}
+        {punches.map((punch) => (
+          <g key={`${punch.day}-${punch.hour}`}>
+            <rect
+              x={left + punch.hour * cell}
+              y={top + punch.day * cell}
+              width={cell}
+              height={cell}
+              className="punch-cell"
+              onMouseMove={(event) =>
+                tip.show(event, `${days[punch.day]} ${punch.hour}:00–${punch.hour}:59 · ${punch.count} commits`)
+              }
+            />
+            {punch.count > 0 && (
+              <motion.circle
+                cx={left + punch.hour * cell + cell / 2}
+                cy={top + punch.day * cell + cell / 2}
+                className="punch-dot"
+                initial={{ r: 0 }}
+                animate={{ r: r(punch.count) }}
+                transition={{ delay: (punch.day * 24 + punch.hour) * 0.002, duration: 0.4, ease: EASE }}
+                style={{ opacity: 0.35 + 0.65 * (punch.count / peak) }}
+                pointerEvents="none"
+              />
+            )}
+          </g>
+        ))}
+      </svg>
+      {tip.node}
+    </div>
   );
 }

@@ -121,7 +121,7 @@ export const clip = (value: unknown, max: number): string => {
   return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
 };
 
-async function api(repository: string, path: string, signal?: AbortSignal) {
+export async function api(repository: string, path: string, signal?: AbortSignal) {
   signal?.throwIfAborted();
   const response = await fetch(`https://api.github.com/repos/${repository}${path}`, {
     signal: AbortSignal.any([

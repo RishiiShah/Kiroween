@@ -84,7 +84,7 @@ export function People({ snapshot, details, threads, onLoadDetails, onLoadThread
   const contributors = details.data?.contributors ?? [];
 
   return (
-    <div className="overview people">
+    <div className="overview people-view">
       <dl className="kpis">
         <div>
           <dt>All-time contributors</dt>
