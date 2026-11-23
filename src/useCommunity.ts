@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getQuota } from "./quota";
 import {
   fetchComments,
   fetchDetails,
@@ -19,12 +20,17 @@ const idle = { status: "idle" } as const;
 const message = (error: unknown) =>
   error instanceof Error ? error.message : "Request failed.";
 
-/** On-demand GitHub reads for one repository. Everything resets when the repository changes. */
-export function useCommunity(repository: string | undefined) {
+/**
+ * GitHub reads for one repository. Everything resets when the repository changes.
+ * With autoLoad, open issues and pull requests (one request) load as soon as a
+ * repository is shown, unless GitHub already reported an exhausted quota.
+ */
+export function useCommunity(repository: string | undefined, autoLoad = false) {
   const [issues, setIssues] = useState<Loadable<IssueList>>(idle);
   const [details, setDetails] = useState<Loadable<Details>>(idle);
   const [comments, setComments] = useState<Record<number, Loadable<CommentList>>>({});
   const controller = useRef<AbortController | null>(null);
+  const autoStart = useRef<() => void>(() => {});
 
   useEffect(() => {
     const own = new AbortController();
@@ -33,8 +39,10 @@ export function useCommunity(repository: string | undefined) {
     setIssues(idle);
     setDetails(idle);
     setComments({});
+    const quota = getQuota();
+    if (repository && autoLoad && (!quota || quota.remaining > 0)) autoStart.current();
     return () => own.abort();
-  }, [repository]);
+  }, [repository, autoLoad]);
 
   const loadIssues = useCallback(async () => {
     const signal = controller.current?.signal;
@@ -47,6 +55,8 @@ export function useCommunity(repository: string | undefined) {
       if (!signal.aborted) setIssues({ status: "error", error: message(error) });
     }
   }, [repository]);
+
+  autoStart.current = () => void loadIssues();
 
   const loadDetails = useCallback(async () => {
     const signal = controller.current?.signal;

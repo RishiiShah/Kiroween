@@ -2364,3 +2364,215 @@ textarea:focus {
 .lede-small .kbd {
   vertical-align: 1px;
 }
+
+/* ============ Subtle motion ============ */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Theme switches cross-fade through the View Transitions API when available. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 320ms;
+  animation-timing-function: var(--ease-out);
+}
+/* Colors glide instead of snapping when state or theme changes. */
+.app,
+.sidebar,
+.main,
+.topline,
+.scan,
+.palette-trigger,
+.block,
+.lane,
+.sheet,
+.issue-list,
+.issue-detail,
+.inspector,
+.inspector-head,
+.btn,
+.menu > summary,
+.menu-item,
+.search,
+.nav-item,
+.tag,
+.segmented button,
+tbody tr,
+.attention-list button,
+.group-list button,
+.thread-list button,
+.issue-hit {
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 200ms ease,
+    transform 160ms var(--ease-out);
+}
+.btn:active:not(:disabled),
+.menu > summary:active,
+.palette-trigger:active,
+.icon-btn:active {
+  transform: scale(0.97);
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.source-button {
+  transition: transform 160ms var(--ease-out), box-shadow 200ms ease, filter 200ms ease;
+}
+.source-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.source-button .icon,
+.issue-actions a .icon {
+  transition: transform 180ms var(--ease-out);
+}
+.source-button:hover .icon,
+.issue-actions a:hover .icon {
+  transform: translate(2px, -2px);
+}
+.nav-item .icon {
+  transition: transform 200ms var(--ease-out), color 200ms ease;
+}
+.nav-item:hover .icon {
+  transform: translateX(1px) scale(1.06);
+}
+.nav-item[aria-current="page"] .icon {
+  color: var(--accent);
+}
+.nav-sub[aria-current="page"] .zone-icon {
+  color: var(--zone);
+}
+/* Menus pop open from their anchor. */
+.menu[open] > .menu-panel {
+  animation: pop-in 170ms var(--ease-out);
+  transform-origin: top right;
+}
+.menu-up[open] > .menu-panel {
+  transform-origin: bottom left;
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.menu-up[open] > .menu-panel {
+  animation-name: pop-up;
+}
+@keyframes pop-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+.review-notes[open] > :not(summary) {
+  animation: fade-up 200ms var(--ease-out);
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+.quota-track span {
+  transition: width 500ms var(--ease-out), background-color 300ms ease;
+}
+.spark-bar {
+  transition: filter 160ms ease;
+}
+.spark-bar:hover {
+  filter: brightness(1.15);
+}
+.lane:hover {
+  border-color: var(--border-strong);
+}
+.trace:focus-visible {
+  outline-offset: 3px;
+}
+.nav-item[data-count="…"]::after {
+  animation: breathe 1.2s ease-in-out infinite;
+}
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ============ Open threads (Overview) ============ */
+.threads {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 12px 16px 16px;
+}
+.thread-col {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.thread-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.thread-head .icon {
+  color: var(--accent);
+}
+.thread-head strong {
+  color: var(--ink);
+}
+.thread-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.thread-list button {
+  display: grid;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 7px;
+  text-align: left;
+}
+.thread-list button:hover {
+  background: var(--sunken);
+}
+.thread-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 550;
+}
+.thread-meta {
+  color: var(--ink-3);
+  font: 11.5px var(--mono);
+}
+.thread-col .link-btn {
+  justify-self: start;
+  padding-left: 9px;
+}
+.issue-skeleton {
+  padding: 10px 12px;
+}
+.issue-skeleton + .issue-skeleton {
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 900px) {
+  .threads {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

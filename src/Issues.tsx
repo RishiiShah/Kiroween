@@ -1,47 +1,76 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import { ago, isQuiet, QUIET_DAYS, type Issue } from "./community";
 import type { CommentList, IssueList, Loadable } from "./useCommunity";
-import { motion } from "motion/react";
 import { Icon, Skeleton } from "./ui";
 
+type Kind = Issue["kind"];
 type Props = {
+  kind: Kind;
   repository: string;
   issues: Loadable<IssueList>;
   comments: Record<number, Loadable<CommentList>>;
   onLoad: () => void;
   onLoadComments: (number: number) => void;
+  focus?: number | null;
 };
-type Kind = "all" | "issue" | "pull";
 type Sort = "updated" | "comments" | "quiet";
 
-export function Issues({ repository, issues, comments, onLoad, onLoadComments }: Props) {
-  const [kind, setKind] = useState<Kind>("all");
+const COPY: Record<Kind, { noun: string; plural: string; empty: string; icon: string }> = {
+  issue: {
+    noun: "issue",
+    plural: "issues",
+    empty: "No open issues among the items GitHub returned.",
+    icon: "issue",
+  },
+  pull: {
+    noun: "pull request",
+    plural: "pull requests",
+    empty: "No open pull requests among the items GitHub returned.",
+    icon: "pull",
+  },
+};
+
+export function Issues({
+  kind,
+  repository,
+  issues,
+  comments,
+  onLoad,
+  onLoadComments,
+  focus = null,
+}: Props) {
   const [sort, setSort] = useState<Sort>("updated");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState<number | null>(null);
+  const [open, setOpen] = useState<number | null>(focus);
+  useEffect(() => setOpen(focus), [focus]);
   const data = issues.data;
   const now = data?.fetchedAt ?? "";
+  const copy = COPY[kind];
+  const all = useMemo(
+    () => (data?.items ?? []).filter((item) => item.kind === kind),
+    [data, kind],
+  );
 
-  const stats = useMemo(() => {
-    const items = data?.items ?? [];
-    return {
-      total: items.length,
-      issue: items.filter((i) => i.kind === "issue").length,
-      pull: items.filter((i) => i.kind === "pull").length,
-      quiet: items.filter((i) => isQuiet(i, now)).length,
-      discussed: items.filter((i) => i.comments > 0).length,
-    };
-  }, [data, now]);
+  const stats = useMemo(
+    () => ({
+      total: all.length,
+      drafts: all.filter((i) => i.draft).length,
+      quiet: all.filter((i) => isQuiet(i, now)).length,
+      discussed: all.filter((i) => i.comments > 0).length,
+      labeled: all.filter((i) => i.labels.length > 0).length,
+    }),
+    [all, now],
+  );
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const list = (data?.items ?? []).filter(
+    const list = all.filter(
       (item) =>
-        (kind === "all" || item.kind === kind) &&
-        (!needle ||
-          `${item.title} #${item.number} ${item.author} ${item.labels.join(" ")}`
-            .toLowerCase()
-            .includes(needle)),
+        !needle ||
+        `${item.title} #${item.number} ${item.author} ${item.labels.join(" ")}`
+          .toLowerCase()
+          .includes(needle),
     );
     return [...list].sort((a, b) =>
       sort === "comments"
@@ -50,35 +79,51 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
           ? Date.parse(a.updatedAt) - Date.parse(b.updatedAt)
           : Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
     );
-  }, [data, kind, sort, query]);
+  }, [all, sort, query]);
+
+  if (issues.status === "loading")
+    return (
+      <section className="issues" aria-label={`Open ${copy.plural}`} aria-busy="true">
+        <p className="issues-stats muted">
+          <Icon name="loader" size={14} className="spin" /> Reading open {copy.plural} for{" "}
+          {repository}…
+        </p>
+        <div className="split">
+          <div className="issue-list">
+            {Array.from({ length: 6 }, (_, index) => (
+              <div className="issue-skeleton" key={index}>
+                <Skeleton lines={2} />
+              </div>
+            ))}
+          </div>
+          <div className="issue-detail is-empty">
+            <Skeleton lines={5} />
+          </div>
+        </div>
+      </section>
+    );
 
   if (issues.status !== "ready")
     return (
-      <section className="load-panel" aria-label="Issues and pull requests">
+      <section className="load-panel" aria-label={`Open ${copy.plural}`}>
         <div className="load-icon" aria-hidden="true">
-          <Icon name="pull" size={20} />
+          <Icon name={copy.icon} size={20} />
         </div>
         <div>
-          <h3>Who is knocking on the door?</h3>
+          <h3>
+            {issues.status === "error"
+              ? `Couldn’t read ${copy.plural} just now`
+              : `Open ${copy.plural} for ${repository}`}
+          </h3>
           <p>
-            Load the 30 most recently updated open issues and pull requests for{" "}
-            <strong>{repository}</strong>. Spot quiet threads that went cold,
-            the most discussed items, and drafts waiting for a reviewer.
-            Comments load one thread at a time, only when you ask.
+            {issues.status === "error"
+              ? "Your findings are unaffected. You can retry once GitHub allows it."
+              : "Imported reports stay offline. Load the latest open issues and pull requests from GitHub with one request."}
           </p>
-          {issues.status === "loading" && <Skeleton lines={4} />}
           <div className="load-actions">
-            <button
-              className="btn btn-primary"
-              onClick={onLoad}
-              disabled={issues.status === "loading"}
-            >
-              <Icon
-                name={issues.status === "loading" ? "loader" : "pull"}
-                size={15}
-                className={issues.status === "loading" ? "spin" : ""}
-              />
-              {issues.status === "loading" ? "Loading…" : "Load issues · 1 request"}
+            <button className="btn btn-primary" onClick={onLoad}>
+              <Icon name="refresh" size={15} />
+              {issues.status === "error" ? "Try again · 1 request" : "Load from GitHub · 1 request"}
             </button>
             {issues.status === "error" && (
               <span className="inline-error" role="alert">
@@ -93,50 +138,46 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
   const current = visible.find((item) => item.number === open) ?? null;
 
   return (
-    <section className="issues" aria-label="Issues and pull requests">
+    <section className="issues" aria-label={`Open ${copy.plural}`}>
       <div className="issues-stats">
         <span>
-          <strong>{stats.issue}</strong> issues
+          <strong>{stats.total}</strong> open {stats.total === 1 ? copy.noun : copy.plural}
         </span>
-        <span>
-          <strong>{stats.pull}</strong> pull requests
-        </span>
+        {kind === "pull" ? (
+          <span>
+            <strong>{stats.drafts}</strong> drafts
+          </span>
+        ) : (
+          <span>
+            <strong>{stats.labeled}</strong> labeled
+          </span>
+        )}
         <span>
           <strong>{stats.discussed}</strong> with discussion
         </span>
         <span className={stats.quiet ? "warn" : ""}>
           <strong>{stats.quiet}</strong> quiet {QUIET_DAYS}+ days
         </span>
-        {data?.more && <span className="muted">More exist on GitHub</span>}
+        {data?.more && (
+          <span className="muted">Newest {data.items.length} open items read; more exist</span>
+        )}
         <button className="link-btn" onClick={onLoad}>
           <Icon name="refresh" size={13} />
-          Refresh · 1 request
+          Refresh
         </button>
       </div>
       <div className="toolbar issues-toolbar">
         <label className="search">
+          <Icon name="search" size={15} />
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            aria-label="Filter issues"
+            aria-label={`Filter ${copy.plural}`}
             placeholder="Title, author, label, or #number"
           />
         </label>
-        <div className="segmented" role="group" aria-label="Item type">
-          {(
-            [
-              ["all", "All"],
-              ["issue", "Issues"],
-              ["pull", "Pull requests"],
-            ] as const
-          ).map(([value, label]) => (
-            <button key={value} aria-pressed={kind === value} onClick={() => setKind(value)}>
-              {label}
-            </button>
-          ))}
-        </div>
         <select
-          aria-label="Sort issues"
+          aria-label={`Sort ${copy.plural}`}
           value={sort}
           onChange={(event) => setSort(event.target.value as Sort)}
         >
@@ -152,9 +193,9 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
             {visible.map((item, index) => (
               <motion.li
                 layout="position"
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: Math.min(index, 12) * 0.02, duration: 0.2 }}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index, 12) * 0.018, duration: 0.22 }}
                 key={item.number}
                 className={`issue ${open === item.number ? "is-open" : ""}`}
               >
@@ -163,13 +204,19 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
                   aria-pressed={open === item.number}
                   onClick={() => setOpen(item.number)}
                 >
-                  <span className={`issue-kind kind-${item.kind} ${item.draft ? "is-draft" : ""}`}>
+                  <span
+                    className={`issue-kind kind-${item.kind} ${item.draft ? "is-draft" : ""}`}
+                  >
                     <Icon
                       name={item.kind === "pull" ? (item.draft ? "draft" : "pull") : "issue"}
                       size={14}
                     />
                     <span className="sr-only">
-                      {item.kind === "pull" ? (item.draft ? "Draft pull request" : "Pull request") : "Issue"}
+                      {item.kind === "pull"
+                        ? item.draft
+                          ? "Draft pull request"
+                          : "Pull request"
+                        : "Issue"}
                     </span>
                   </span>
                   <span className="issue-title">{item.title}</span>
@@ -193,11 +240,7 @@ export function Issues({ repository, issues, comments, onLoad, onLoadComments }:
           />
         </div>
       ) : (
-        <p className="empty">
-          {data?.items.length
-            ? "No loaded items match these filters."
-            : "GitHub reports no open issues or pull requests."}
-        </p>
+        <p className="empty">{all.length ? `No ${copy.plural} match this filter.` : copy.empty}</p>
       )}
     </section>
   );
@@ -226,7 +269,7 @@ function IssueDetail({
       key={item.number}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       className="issue-detail"
       aria-labelledby="issue-detail-title"
     >
@@ -236,8 +279,7 @@ function IssueDetail({
       </p>
       <h3 id="issue-detail-title">{item.title}</h3>
       <p className="issue-byline">
-        Opened {ago(item.createdAt, now)} by {item.author} · updated{" "}
-        {ago(item.updatedAt, now)}
+        Opened {ago(item.createdAt, now)} by {item.author} · updated {ago(item.updatedAt, now)}
         {isQuiet(item, now) && <span className="warn"> · quiet {QUIET_DAYS}+ days</span>}
       </p>
       {item.labels.length > 0 && (
@@ -272,13 +314,18 @@ function IssueDetail({
       )}
       {comments?.status === "ready" && comments.data && (
         <ol className="comment-list" aria-label={`Comments on #${item.number}`}>
-          {comments.data.items.map((comment) => (
-            <li key={comment.id}>
+          {comments.data.items.map((comment, index) => (
+            <motion.li
+              key={comment.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.04, duration: 0.2 }}
+            >
               <p className="comment-meta">
                 <strong>{comment.author}</strong> · {ago(comment.createdAt, now)}
               </p>
               <p className="issue-excerpt">{comment.excerpt || "(empty comment)"}</p>
-            </li>
+            </motion.li>
           ))}
           {comments.data.more && (
             <li className="comment-more">

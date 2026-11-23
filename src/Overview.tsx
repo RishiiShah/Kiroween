@@ -1,7 +1,7 @@
 import { commitDates, summarizeActivity, zoneCounts } from "./activity";
-import { ago, type Details } from "./community";
+import { ago, isQuiet, type Details, type Issue } from "./community";
 import type { Snapshot, Zone } from "./scan";
-import type { Loadable } from "./useCommunity";
+import type { IssueList, Loadable } from "./useCommunity";
 import { motion } from "motion/react";
 import { Icon, NumberTicker, Skeleton } from "./ui";
 import { ZONES } from "./scan";
@@ -19,9 +19,21 @@ type Props = {
   onBrowse: (zone: Zone | "all") => void;
   details: Loadable<Details>;
   onLoadDetails: () => void;
+  threads: Loadable<IssueList>;
+  onLoadThreads: () => void;
+  onOpenThread: (kind: Issue["kind"], number: number) => void;
 };
 
-export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }: Props) {
+export function Overview({
+  snapshot,
+  onOpen,
+  onBrowse,
+  details,
+  onLoadDetails,
+  threads,
+  onLoadThreads,
+  onOpenThread,
+}: Props) {
   const attention = snapshot.findings.filter((finding) => finding.severity === "review");
   const activity = summarizeActivity(commitDates(snapshot), snapshot.observedAt);
   const peak = Math.max(1, ...activity.buckets);
@@ -211,6 +223,48 @@ export function Overview({ snapshot, onOpen, onBrowse, details, onLoadDetails }:
           </ul>
         </section>
 
+        <section className="block span-12" aria-labelledby="threads-title">
+          <header className="block-head">
+            <Icon name="message" size={15} className="block-icon" />
+            <h3 id="threads-title">Open threads</h3>
+            {threads.status === "ready" && threads.data && (
+              <span className="block-note">
+                updated {ago(threads.data.fetchedAt, new Date().toISOString())}
+              </span>
+            )}
+          </header>
+          {threads.status === "loading" ? (
+            <div className="threads">
+              <Skeleton lines={4} />
+              <Skeleton lines={4} />
+            </div>
+          ) : threads.status === "ready" && threads.data ? (
+            <div className="threads">
+              {(["pull", "issue"] as const).map((kind) => (
+                <ThreadColumn
+                  key={kind}
+                  kind={kind}
+                  items={threads.data!.items.filter((item) => item.kind === kind)}
+                  now={threads.data!.fetchedAt}
+                  onOpen={onOpenThread}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="load-inline">
+              <p>
+                {threads.status === "error"
+                  ? threads.error
+                  : "Imported reports stay offline. Load open issues and pull requests when you want them."}
+              </p>
+              <button className="btn btn-plain" onClick={onLoadThreads}>
+                <Icon name="refresh" size={15} />
+                {threads.status === "error" ? "Try again · 1 request" : "Load · 1 request"}
+              </button>
+            </div>
+          )}
+        </section>
+
         <section className="block span-12" aria-labelledby="details-title">
           <header className="block-head">
             <Icon name="users" size={15} className="block-icon" />
@@ -342,6 +396,55 @@ function DetailsBody({ details }: { details: Details }) {
           {warning}
         </p>
       ))}
+    </div>
+  );
+}
+
+function ThreadColumn({
+  kind,
+  items,
+  now,
+  onOpen,
+}: {
+  kind: Issue["kind"];
+  items: Issue[];
+  now: string;
+  onOpen: (kind: Issue["kind"], number: number) => void;
+}) {
+  const label = kind === "pull" ? "Pull requests" : "Issues";
+  const quiet = items.filter((item) => isQuiet(item, now)).length;
+  return (
+    <div className="thread-col">
+      <p className="thread-head">
+        <Icon name={kind} size={14} />
+        <strong>{items.length}</strong> {label.toLowerCase()}
+        {quiet > 0 && <span className="warn"> · {quiet} quiet</span>}
+      </p>
+      {items.length ? (
+        <ul className="thread-list">
+          {items.slice(0, 4).map((item) => (
+            <li key={item.number}>
+              <button onClick={() => onOpen(kind, item.number)}>
+                <span className="thread-title">{item.title}</span>
+                <span className="thread-meta">
+                  #{item.number} · {ago(item.updatedAt, now)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">None open.</p>
+      )}
+      {items.length > 4 && (
+        <button
+          className="link-btn"
+          onClick={() => onOpen(kind, items[0].number)}
+        >
+          All {items.length} {label.toLowerCase()}
+          <Icon name="next" size={13} />
+        </button>
+      )}
     </div>
   );
 }

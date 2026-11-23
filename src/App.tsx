@@ -12,9 +12,11 @@ import {
   saveTheme,
   subscribeScheme,
   themeCanvas,
+  iconSetFor,
   type ThemeId,
 } from "./theme";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import {
   isSnapshot,
   parseRepository,
@@ -24,7 +26,7 @@ import {
   type Zone,
 } from "./scan";
 import "./style.css";
-import { Icon, Kbd, isMac } from "./ui";
+import { Icon, IconSetContext, Kbd, isMac } from "./ui";
 import { MotionConfig, motion } from "motion/react";
 import { CommandPalette, type PaletteGroup } from "./CommandPalette";
 import { useSoundscape } from "./useSoundscape";
@@ -48,7 +50,7 @@ export function App() {
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [view, setView] = useState<"overview" | "issues" | "map" | "table">("overview");
+  const [view, setView] = useState<"overview" | "issues" | "pulls" | "map" | "table">("overview");
   const [zone, setZone] = useState<Zone | "all">("all");
   const [status, setStatus] = useState("all");
   const [query, setQuery] = useState("");
@@ -77,7 +79,26 @@ export function App() {
   } | null>(null);
   const sound = useSoundscape();
   const review = useReviews();
-  const community = useCommunity(snapshot?.repository);
+  const community = useCommunity(snapshot?.repository, origin !== "imported");
+  const [threadFocus, setThreadFocus] = useState<number | null>(null);
+  const threadCount = (kind: "issue" | "pull") =>
+    community.issues.status === "loading"
+      ? "…"
+      : community.issues.data
+        ? community.issues.data.items.filter((item) => item.kind === kind).length
+        : undefined;
+  function changeTheme(next: ThemeId) {
+    const doc = document as Document & {
+      startViewTransition?: (update: () => void) => unknown;
+    };
+    const calm =
+      motionPaused ||
+      (typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    if (doc.startViewTransition && !calm)
+      doc.startViewTransition(() => flushSync(() => setTheme(next)));
+    else setTheme(next);
+  }
   const quota = useSyncExternalStore(subscribeQuota, getQuota);
   const controller = useRef<AbortController | null>(null);
   const demo = useRef<Snapshot | null>(null);
@@ -141,6 +162,34 @@ export function App() {
     const onKey = (event: KeyboardEvent) => keyHandler.current(event);
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
+  }, []);
+  // Popover menus are native <details>; give them standard menu dismissal.
+  useEffect(() => {
+    const root = appRef.current;
+    if (!root) return;
+    const openMenus = () => [...root.querySelectorAll<HTMLDetailsElement>("details.menu[open]")];
+    const onPointerDown = (event: PointerEvent) => {
+      for (const menu of openMenus())
+        if (!menu.contains(event.target as Node)) menu.open = false;
+    };
+    const onToggle = (event: Event) => {
+      const menu = event.target as HTMLDetailsElement;
+      if (!menu.matches?.("details.menu") || !menu.open) return;
+      for (const other of openMenus()) if (other !== menu) other.open = false;
+    };
+    const onClick = (event: MouseEvent) => {
+      const item = (event.target as Element | null)?.closest?.(".report-menu .menu-item");
+      const menu = item?.closest("details");
+      if (menu) menu.open = false;
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    root.addEventListener("toggle", onToggle, true);
+    root.addEventListener("click", onClick);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      root.removeEventListener("toggle", onToggle, true);
+      root.removeEventListener("click", onClick);
+    };
   }, []);
 
   async function scan(event: React.FormEvent) {
@@ -327,7 +376,8 @@ export function App() {
 
   const VIEW_TITLES = {
     overview: "Overview",
-    issues: "Issues & pull requests",
+    issues: "Issues",
+    pulls: "Pull requests",
     map: "Findings",
     table: "Analyst table",
   } as const;
@@ -343,6 +393,7 @@ export function App() {
     snapshot?.findings.filter((finding) => finding.zone === id).length || 0;
   const go = (next: typeof view, nextZone: Zone | "all" = "all") => {
     setView(next);
+    if (next !== "issues" && next !== "pulls") setThreadFocus(null);
     if (next === "map") setZone(nextZone);
   };
   const [owner, repoName] = snapshot ? snapshot.repository.split("/") : ["", ""];
@@ -354,6 +405,17 @@ export function App() {
       return;
     }
     if (paletteOpen || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.key === "Escape") {
+      const menus = [
+        ...(appRef.current?.querySelectorAll<HTMLDetailsElement>("details.menu[open]") ?? []),
+      ];
+      if (menus.length) {
+        event.preventDefault();
+        for (const menu of menus) menu.open = false;
+        menus[menus.length - 1].querySelector<HTMLElement>("summary")?.focus();
+        return;
+      }
+    }
     const target = event.target as HTMLElement | null;
     const typing =
       !!target &&
@@ -383,7 +445,8 @@ export function App() {
       items: snapshot
         ? [
             { id: "go-overview", label: "Overview", icon: "home", onSelect: () => go("overview") },
-            { id: "go-issues", label: "Issues & PRs", icon: "issue", onSelect: () => go("issues") },
+            { id: "go-issues", label: "Issues", icon: "issue", onSelect: () => go("issues") },
+            { id: "go-pulls", label: "Pull requests", icon: "pull", onSelect: () => go("pulls") },
             { id: "go-findings", label: "All findings", icon: "board", onSelect: () => go("map") },
             ...ZONES.map((item) => ({
               id: `go-${item.id}`,
@@ -410,11 +473,22 @@ export function App() {
     {
       heading: "Actions",
       items: [
-        { id: "act-demo", label: "Explore the demo", icon: "sparkles", disabled: busy, onSelect: loadDemo },
+        { id: "act-demo", label: "Explore the demo", icon: "demo", disabled: busy, onSelect: loadDemo },
         { id: "act-scan", label: "Scan another repository", icon: "search", onSelect: () => document.getElementById("repo-url")?.focus() },
         ...(snapshot
           ? [
-              { id: "act-issues", label: "Load open issues and pull requests", hint: "1 request", icon: "pull", onSelect: () => { go("issues"); void community.loadIssues(); } },
+              { id: "act-issues", label: "Refresh issues and pull requests", hint: "1 request", icon: "refresh", onSelect: () => void community.loadIssues() },
+              ...(community.issues.data?.items ?? []).map((item) => ({
+                id: `thread-${item.number}`,
+                label: `#${item.number} ${item.title}`,
+                hint: item.kind === "pull" ? "pull request" : "issue",
+                icon: item.kind === "pull" ? (item.draft ? "draft" : "pull") : "issue",
+                keywords: [item.author, ...item.labels],
+                onSelect: () => {
+                  setThreadFocus(item.number);
+                  setView(item.kind === "pull" ? "pulls" : "issues");
+                },
+              })),
               { id: "act-details", label: "Load languages, contributors and release", hint: "3 requests", icon: "users", onSelect: () => { go("overview"); void community.loadDetails(); } },
               { id: "act-md", label: "Copy Markdown summary", icon: "copy", onSelect: () => void copyMarkdown() },
               { id: "act-export", label: "Export report", icon: "download", onSelect: download },
@@ -432,7 +506,7 @@ export function App() {
         label: `${item.label} theme`,
         hint: theme === item.id ? "current" : item.note,
         icon: "palette",
-        onSelect: () => setTheme(item.id),
+        onSelect: () => changeTheme(item.id),
       })),
     },
     {
@@ -455,6 +529,7 @@ export function App() {
 
   return (
     <MotionConfig reducedMotion={motionPaused ? "always" : "user"}>
+    <IconSetContext.Provider value={iconSetFor(resolvedTheme)}>
     <div
       ref={appRef}
       className={`app theme-${resolvedTheme} ${isDarkTheme(resolvedTheme) ? "is-dark" : ""} ${motionPaused ? "motion-paused" : ""} ${snapshot && active ? "has-inspector" : ""}`}
@@ -514,7 +589,7 @@ export function App() {
               disabled={busy}
               className="btn btn-plain"
             >
-              <Icon name="sparkles" size={15} />
+              <Icon name="demo" size={15} />
               Explore the demo
             </button>
           </div>
@@ -549,11 +624,21 @@ export function App() {
               className="nav-item"
               aria-current={view === "issues" ? "page" : undefined}
               onClick={() => go("issues")}
-              data-count={community.issues.data?.items.length ?? undefined}
+              data-count={threadCount("issue")}
             >
               {activePill(view === "issues")}
               <Icon name="issue" size={16} />
-              Issues & PRs
+              Issues
+            </button>
+            <button
+              className="nav-item"
+              aria-current={view === "pulls" ? "page" : undefined}
+              onClick={() => go("pulls")}
+              data-count={threadCount("pull")}
+            >
+              {activePill(view === "pulls")}
+              <Icon name="pull" size={16} />
+              Pull requests
             </button>
             <p className="nav-heading">Evidence</p>
             <button
@@ -684,7 +769,7 @@ export function App() {
                       key={item.id}
                       className="menu-item theme-option"
                       aria-pressed={theme === item.id}
-                      onClick={() => setTheme(item.id)}
+                      onClick={() => changeTheme(item.id)}
                       title={item.note}
                     >
                       <span
@@ -959,8 +1044,10 @@ export function App() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
             >
-              {view === "issues" ? (
+              {view === "issues" || view === "pulls" ? (
                 <Issues
+                  kind={view === "pulls" ? "pull" : "issue"}
+                  focus={threadFocus}
                   repository={snapshot.repository}
                   issues={community.issues}
                   comments={community.comments}
@@ -969,6 +1056,12 @@ export function App() {
                 />
               ) : view === "overview" ? (
                 <Overview
+                  threads={community.issues}
+                  onLoadThreads={community.loadIssues}
+                  onOpenThread={(kind, number) => {
+                    setThreadFocus(number);
+                    setView(kind === "pull" ? "pulls" : "issues");
+                  }}
                   details={community.details}
                   onLoadDetails={community.loadDetails}
                   snapshot={snapshot}
@@ -1395,6 +1488,7 @@ export function App() {
         container={appRef.current}
       />
     </div>
+    </IconSetContext.Provider>
     </MotionConfig>
   );
 }

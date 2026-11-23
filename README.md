@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open the printed local URL. The bundled demo works without contacting GitHub. Live scans require internet access.
+Open the printed local URL. The bundled demo findings work without contacting GitHub; its open issues and pull requests load live (one request) when internet is available. Live scans require internet access.
 
 ```sh
 npm test
@@ -39,18 +39,19 @@ npm run preview
 - Cancellation, request timeouts, explicit errors, partial coverage, and rate-limit handling.
 
 - **Overview** tab (the default view): findings that need review, commit activity over the latest 20 inspected commits, findings by group, and an About panel with revision, coverage, and warnings. Everything shown comes from the saved snapshot; no extra API calls. Snapshots saved before this tab existed show activity for the six commits they kept.
-- **Issues & PRs** tab: loads the 30 most recently updated open issues and pull requests on request (1 request). Filter by type, search, sort by recent/most discussed/quietest, and flag items not updated in 90+ days. Expand an item for its description and load up to 10 comments (1 request each). All text renders as plain text; links are built from validated numbers, never copied from API responses.
+- **Issues** and **Pull requests** views: as soon as a live, cached, or demo snapshot is shown, one request reads the 100 most recently updated open items and splits them by type. Sidebar counts update live; the Overview shows the newest of each under **Open threads**. Imported reports stay offline until you click Load. If GitHub already reported an exhausted quota, nothing is fetched automatically. Search, sort by recent/most discussed/quietest, flag items not updated in 90+ days, and load up to 10 comments per thread (1 request each). All text renders as plain text; links are built from validated numbers, never copied from API responses.
 - **Languages, people and releases** panel on Overview: language mix, top 8 contributors, and the latest release (3 requests, on request).
 - **Copy Markdown summary** in the Report menu, with repository text escaped. Includes loaded issues.
 - **Quota readout** in the top bar from GitHub's rate-limit headers.
 - **Command palette** (⌘K / Ctrl+K, built on `cmdk`): jump to any view, group, or finding; load issues or details; export, compare, print, copy Markdown; switch theme, motion, and sound. **J / K** step through visible findings; **Esc** closes evidence.
 - Motion (via `motion`, honoring both the system reduced-motion setting and **Reduce motion**): sliding nav indicator, staggered board cards with layout-aware filtering, evidence pane slide-in, animated activity bars and counters, toast entrances, and loading skeletons. No flashing or looping effects except loading indicators.
-- Icons from Lucide; Inter Variable for interface text, Bricolage Grotesque Variable for headings, IBM Plex Mono for paths. All fonts are bundled locally by Vite (Fontsource); no runtime font CDN.
+- Icons from Lucide, drawn per theme with the same meaning: Halloween uses a castle, footprints, doors, skull, eye, tombstone, and flashlight; Midnight uses telescope, orbit, satellite, and radar; High contrast uses heavier strokes; Light and Dark use standard product icons. Theme switches cross-fade using the browser View Transitions API when available. Colors, buttons, menus, and links animate subtly; all motion respects system and manual reduced-motion settings.
+- Fonts: Inter Variable for interface text, Bricolage Grotesque Variable for headings, IBM Plex Mono for paths. All fonts are bundled locally by Vite (Fontsource); no runtime font CDN.
 ## Scan contract
 
 `src/scan.ts` owns the snapshot/finding types, URL trust boundary, API reads, and evidence mapping. `src/App.tsx` renders those records without executing source content. `src/useSoundscape.ts` owns opt-in Web Audio lifecycle, volume envelopes, background suspension, and throttled cues. `src/reviews.ts` validates reports and notes and manages local autosave. `src/compare.ts` compares validated snapshots by finding ID and substantive evidence fields. React escapes repository text. Cached, bundled, and imported records pass structural and source-URL validation before display.
 
-These on-demand reads are separate from the scan and never run automatically. A scan reads metadata, up to 20 recent commits, the first page of five branch names, up to four non-default tip commits, a recursive tree, and up to six source blobs. At most 14 API calls; no automatic retries. Once GitHub reports a rate limit, remaining reads stop without further network requests. Files are pinned to the latest inspected default-branch commit; branch evidence is pinned to each observed branch tip. API responses are not an atomic snapshot across endpoints.
+Issue and pull-request reads (1 request) start automatically for non-imported snapshots; other community reads run only on request. All are separate from the scan budget below. A scan reads metadata, up to 20 recent commits, the first page of five branch names, up to four non-default tip commits, a recursive tree, and up to six source blobs. At most 14 API calls; no automatic retries. Once GitHub reports a rate limit, remaining reads stop without further network requests. Files are pinned to the latest inspected default-branch commit; branch evidence is pinned to each observed branch tip. API responses are not an atomic snapshot across endpoints.
 
 The tree is capped at 2,000 non-symlink blobs. Source sampling prioritizes root `package.json`, then paths under `src/`, `lib/`, and `app/`, then other text paths. Paths within each group sort alphabetically. At most six files are sampled, each at most 64 KiB. Each sampled source contributes at most three TODO/FIXME findings. The root manifest reports dependency declarations, flagging broad or remote version strings without claiming vulnerabilities. Commit rooms show up to six of the 20 inspected commits. Scan size is intentionally bounded for free API use; no full-history, repository-wide TODO, dependency-vulnerability, missing-test, or secret audit is claimed.
 

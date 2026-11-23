@@ -58,7 +58,7 @@ describe("issue parsing", () => {
     expect(() => parseIssues({}, repo)).toThrow();
   });
   it("bounds counts and text, and tolerates deleted users", () => {
-    const many = Array.from({ length: 80 }, (_, i) =>
+    const many = Array.from({ length: 150 }, (_, i) =>
       raw({ number: i + 1, body: "x".repeat(5000), user: null }),
     );
     const result = parseIssues(many, repo);

@@ -27,7 +27,7 @@ export type Details = {
   fetchedAt: string;
 };
 export const COMMUNITY_LIMITS = {
-  issues: 30,
+  issues: 100,
   comments: 10,
   contributors: 8,
   languages: 6,

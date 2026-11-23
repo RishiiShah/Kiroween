@@ -70,3 +70,7 @@ export function subscribeScheme(listener: () => void) {
   return () => media?.removeEventListener("change", listener);
 }
 export const getPrefersDark = () => query()?.matches ?? false;
+
+import type { IconSet } from "./ui";
+export const iconSetFor = (theme: ResolvedTheme): IconSet =>
+  theme === "halloween" ? "halloween" : theme === "midnight" ? "midnight" : theme === "contrast" ? "contrast" : "standard";

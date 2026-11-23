@@ -540,7 +540,7 @@ describe("explorer interactions", () => {
     expect(traces.length).toBe(demo.findings.filter((f) => f.zone === "branches").length);
   });
 
-  it("loads issues and comments only on request and renders them as text", async () => {
+  it("auto-loads issues and pull requests once, splits them, and loads comments on request", async () => {
     const item = (number: number, extra: Record<string, unknown> = {}) => ({
       number,
       title: `Haunted hinge ${number}`,
@@ -564,18 +564,34 @@ describe("explorer interactions", () => {
             ]),
           );
         if (input.includes("/issues?"))
-          return new Response(JSON.stringify([item(1), item(2, { pull_request: {} })]));
+          return new Response(
+            JSON.stringify([item(1), item(2, { pull_request: {} }), item(3), item(4, { pull_request: {}, draft: true })]),
+          );
         return new Response(JSON.stringify(demo));
       }),
     );
     await mountRaw();
-    await click("Issues & PRs");
-    expect(calls.some((c) => c.includes("api.github.com"))).toBe(false);
-    await click("Load issues · 1 request");
+    const issueCalls = () => calls.filter((c) => c.includes("/issues?"));
+    expect(issueCalls()).toHaveLength(1);
+    expect(issueCalls()[0]).toContain("per_page=100");
+    const navCount = (label: string) =>
+      [...container.querySelectorAll<HTMLButtonElement>(".nav-item")]
+        .find((b) => b.textContent?.trim() === label)
+        ?.getAttribute("data-count");
+    expect(navCount("Issues")).toBe("2");
+    expect(navCount("Pull requests")).toBe("2");
+    expect(container.querySelector(".threads")?.textContent).toContain("Haunted hinge 4");
+    await click("Issues");
     expect(container.querySelectorAll(".issue")).toHaveLength(2);
+    expect(container.querySelector(".issue-list")?.textContent).not.toContain("Haunted hinge 2");
     await click("Pull requests");
-    expect(container.querySelectorAll(".issue")).toHaveLength(1);
-    await act(async () => container.querySelector<HTMLButtonElement>(".issue-title")!.click());
+    expect(container.querySelectorAll(".issue")).toHaveLength(2);
+    expect(container.querySelector(".issue-list")?.textContent).toContain("Draft pull request");
+    expect(issueCalls()).toHaveLength(1);
+    const pr = [...container.querySelectorAll<HTMLElement>(".issue-title")].find((e) =>
+      e.textContent?.includes("Haunted hinge 2"),
+    )!;
+    await act(async () => pr.click());
     expect(container.querySelector(".issue-excerpt")?.textContent).toContain("<img src=x");
     expect(container.querySelector(".issue-detail img")).toBeNull();
     expect(
@@ -586,6 +602,50 @@ describe("explorer interactions", () => {
     expect(container.querySelector(".comment-list")?.textContent).toContain("<script>x</script> seen");
     expect(container.querySelector(".comment-list script")).toBeNull();
     expect(calls.filter((c) => c.includes("/comments"))).toHaveLength(1);
+  });
+
+  it("opens a thread from the overview in the matching view", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) =>
+        input.includes("/issues?")
+          ? new Response(
+              JSON.stringify([
+                {
+                  number: 7,
+                  title: "Creaky stair",
+                  user: { login: "a" },
+                  comments: 0,
+                  labels: [],
+                  created_at: "2026-11-01T00:00:00Z",
+                  updated_at: "2026-11-02T00:00:00Z",
+                  body: "creak",
+                  pull_request: {},
+                },
+              ]),
+            )
+          : new Response(JSON.stringify(demo)),
+      ),
+    );
+    await mountRaw();
+    const thread = container.querySelector<HTMLButtonElement>(".thread-list button")!;
+    await act(async () => thread.click());
+    expect(container.querySelector(".issue-detail h3")?.textContent).toBe("Creaky stair");
+    expect(container.querySelector(".view-head h2")?.textContent).toBe("Pull requests");
+  });
+
+  it("keeps imported reports offline until asked", async () => {
+    await mountRaw();
+    vi.mocked(fetch).mockClear();
+    const other = { ...demo, repository: "octo/manor", findings: demo.findings.map((f) => ({ ...f, source: f.source.replace("expressjs/express", "octo/manor") })) };
+    await expand("Report");
+    await click("Import report");
+    await loadReportFile(other);
+    expect(container.textContent).toContain("IMPORTED REPORT");
+    expect(fetch).not.toHaveBeenCalled();
+    await click("Issues");
+    expect(container.textContent).toContain("Imported reports stay offline");
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("accepts owner/repo shorthand and closes evidence with Escape", async () => {
@@ -633,8 +693,8 @@ describe("explorer interactions", () => {
       ),
     );
     await mountRaw();
-    await click("Issues & PRs");
-    await click("Load issues · 1 request");
+    await click("Issues");
+    expect(container.textContent).toContain("Try again · 1 request");
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("limited");
     expect(container.querySelectorAll(".issue")).toHaveLength(0);
   });
@@ -710,5 +770,60 @@ describe("explorer interactions", () => {
     const search = container.querySelector<HTMLInputElement>('[aria-label="Filter findings"]')!;
     await press("j", search);
     expect(nav()).toContain("Trace 1 of");
+  });
+
+  it("draws icons from the active theme's set without changing labels", async () => {
+    await mountRaw();
+    const overview = () =>
+      [...container.querySelectorAll<HTMLButtonElement>(".nav-item")].find(
+        (b) => b.textContent?.trim() === "Overview",
+      )!;
+    expect(overview().querySelector("svg.lucide-castle")).toBeTruthy();
+    await expand("Settings");
+    await click("Light");
+    expect(overview().querySelector("svg.lucide-layout-dashboard")).toBeTruthy();
+    await click("Midnight");
+    expect(overview().querySelector("svg.lucide-telescope")).toBeTruthy();
+    await click("High contrast");
+    expect(overview().querySelector("svg")?.getAttribute("stroke-width")).toBe("2.25");
+    expect(overview().textContent?.trim()).toBe("Overview");
+  });
+
+  it("closes menus on outside click and Escape, and keeps one menu open at a time", async () => {
+    await mount();
+    const menu = (label: string) =>
+      [...container.querySelectorAll("summary")].find((el) => el.textContent?.trim() === label)!
+        .parentElement as HTMLDetailsElement;
+    const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve)));
+    await expand("Settings");
+    await act(async () => {
+      menu("Settings").querySelector("button")!.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+    expect(menu("Settings").open).toBe(true);
+    await act(async () => {
+      document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    });
+    expect(menu("Settings").open).toBe(false);
+
+    await expand("Report");
+    await settle();
+    await expand("Filters");
+    await settle();
+    expect(menu("Filters").open).toBe(true);
+    expect(menu("Report").open).toBe(false);
+
+    await openFirstTrace();
+    await expand("Settings");
+    await settle();
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    });
+    expect(menu("Settings").open).toBe(false);
+    expect(container.querySelector(".inspector")).toBeTruthy();
+    expect(document.activeElement?.textContent?.trim()).toBe("Settings");
+
+    await expand("Report");
+    await click("Export report");
+    expect(menu("Report").open).toBe(false);
   });
 });
