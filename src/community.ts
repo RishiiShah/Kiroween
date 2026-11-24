@@ -99,8 +99,8 @@ export const COMMUNITY_LIMITS = {
   reviews: 30,
   assignees: 5,
   languages: 6,
-  excerpt: 600,
-  commentExcerpt: 500,
+  excerpt: 1500,
+  commentExcerpt: 900,
   labels: 4,
 };
 export const QUIET_DAYS = 90;

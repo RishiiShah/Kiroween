@@ -12,7 +12,16 @@ mkdirSync(out, { recursive: true });
 const browser = await chromium.launch();
 async function session(viewport, theme = "halloween") {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1, colorScheme: "dark" });
-  await context.routeFromHAR(har, { url: /api\.github\.com/, update: !existsSync(har), updateContent: "embed" });
+  // /rate_limit is free; answer it locally so the quota meter renders without network.
+  await context.route(/api\.github\.com\/rate_limit$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: JSON.stringify({ resources: { core: { limit: 60, remaining: 48, reset: Math.floor(Date.now() / 1000) + 2400 } } }),
+    }),
+  );
+  await context.routeFromHAR(har, { url: /api\.github\.com\/repos/, update: !existsSync(har), updateContent: "embed" });
   await context.addInitScript((value) => {
     if (value !== "halloween") localStorage.setItem("poltergeist.theme.v1", value);
   }, theme);

@@ -1072,11 +1072,30 @@ export function App() {
             </header>
 
             <div className="view-head">
-              <h2>
+              <div className="view-title">
+                <h2>
                 {view === "map" && zone !== "all"
                   ? ZONES.find((item) => item.id === zone)?.name
                   : VIEW_TITLES[view]}
               </h2>
+                <p className="view-sub">
+                  {view === "overview"
+                    ? `A sampled read of ${snapshot.repository}: what needs attention, how it moves, and who works on it.`
+                    : view === "people"
+                      ? "Contributors, recent committers, open work, and newcomers waiting on a reply."
+                      : view === "commits"
+                        ? "History drawn as a graph, with what changed and when it happens."
+                        : view === "issues"
+                          ? "Open issues, most recently active first. Select one to read it."
+                          : view === "pulls"
+                            ? "Open pull requests, with size and review state on request."
+                            : view === "map"
+                              ? zone === "all"
+                                ? "Every sampled finding, grouped by where it lives in the house."
+                                : ZONES.find((item) => item.id === zone)?.subtitle
+                              : "Every finding in one list, with confidence and source links."}
+                </p>
+              </div>
               {(view === "map" || view === "table") && (
                 <div className="toolbar">
                   <label className="search">

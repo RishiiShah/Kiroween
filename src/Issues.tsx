@@ -14,6 +14,7 @@ import { Avatar } from "./People";
 import type { CommentList, IssueList, Loadable } from "./useCommunity";
 import { Icon, Skeleton, t } from "./ui";
 import { AgeHistogram } from "./charts";
+import { Markdown } from "./RichText";
 import { threadAgeBuckets } from "./activity";
 
 type Kind = Issue["kind"];
@@ -301,72 +302,134 @@ function IssueDetail({
         <p>Pick a thread on the left to read it here.</p>
       </div>
     );
+  const kindLabel = item.kind === "pull" ? (item.draft ? "Draft" : "Open") : "Open";
+  const truncated = item.excerpt.endsWith("…");
   return (
     <motion.article
       key={item.number}
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: t(0.22), ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: t(0.3), ease: [0.22, 1, 0.36, 1] }}
       className="issue-detail"
       aria-labelledby="issue-detail-title"
     >
-      <p className="eyebrow">
-        {item.kind === "pull" ? (item.draft ? "Draft pull request" : "Pull request") : "Issue"}{" "}
-        #{item.number}
-      </p>
-      <h3 id="issue-detail-title">{item.title}</h3>
-      <div className="issue-people">
-        <Avatar id={item.authorId} login={item.author} size={30} />
-        <div>
-          <p className="issue-byline">
-            <a href={profileUrl(item.author)} target="_blank" rel="noreferrer">
-              <strong>{item.author}</strong>
-            </a>{" "}
-            <span className={`tag ${isNewcomer(item.association) ? "tag-review" : ""}`}>
-              {ASSOCIATION_LABEL[item.association]}
+      <header className="thread-head">
+        <div className="thread-kicker">
+          <span className={`state-pill kind-${item.kind} ${item.draft ? "is-draft" : ""}`}>
+            <Icon name={item.kind === "pull" ? (item.draft ? "draft" : "pull") : "issue"} size={13} />
+            {kindLabel} {item.kind === "pull" ? "pull request" : "issue"}
+          </span>
+          <a className="thread-number" href={item.url} target="_blank" rel="noreferrer">
+            #{item.number}
+          </a>
+          {isQuiet(item, now) && <span className="tag tag-review">Quiet {QUIET_DAYS}+ days</span>}
+        </div>
+        <h3 id="issue-detail-title">{item.title}</h3>
+        <div className="thread-byline">
+          <Avatar id={item.authorId} login={item.author} size={24} />
+          <a href={profileUrl(item.author)} target="_blank" rel="noreferrer" className="thread-author">
+            {item.author}
+          </a>
+          <span className={`assoc-chip ${isNewcomer(item.association) ? "is-new" : ""}`}>
+            {ASSOCIATION_LABEL[item.association]}
+          </span>
+          <span className="thread-dates">
+            opened {ago(item.createdAt, now)} · updated {ago(item.updatedAt, now)}
+          </span>
+        </div>
+      </header>
+
+      <div className="thread-chips">
+        <span className="meta-chip">
+          <Icon name="users" size={14} />
+          {item.assignees.length ? (
+            <span className="avatar-stack">
+              {item.assignees.map((person) => (
+                <a key={person.login} href={profileUrl(person.login)} target="_blank" rel="noreferrer" title={person.login}>
+                  <Avatar id={person.id} login={person.login} size={18} />
+                  <span>{person.login}</span>
+                </a>
+              ))}
             </span>
-          </p>
-          <p className="issue-byline">
-            Opened {ago(item.createdAt, now)} · updated {ago(item.updatedAt, now)}
-            {isQuiet(item, now) && <span className="warn"> · quiet {QUIET_DAYS}+ days</span>}
-            {item.reactions > 0 && ` · ${item.reactions} reactions`}
-          </p>
-        </div>
+          ) : (
+            <span className="muted">Unassigned</span>
+          )}
+        </span>
+        <span className="meta-chip">
+          <Icon name="message" size={14} />
+          {item.comments} {item.comments === 1 ? "comment" : "comments"}
+        </span>
+        {item.reactions > 0 && (
+          <span className="meta-chip">
+            <Icon name="star" size={14} />
+            {item.reactions} {item.reactions === 1 ? "reaction" : "reactions"}
+          </span>
+        )}
+        {item.labels.map((label) => (
+          <span key={label} className="label-chip">
+            {label}
+          </span>
+        ))}
       </div>
-      <dl className="issue-facts">
-        <div>
-          <dt>Assignees</dt>
-          <dd>
-            {item.assignees.length ? (
-              <span className="avatar-stack">
-                {item.assignees.map((person) => (
-                  <a key={person.login} href={profileUrl(person.login)} target="_blank" rel="noreferrer" title={person.login}>
-                    <Avatar id={person.id} login={person.login} size={22} />
-                    <span>{person.login}</span>
-                  </a>
-                ))}
-              </span>
-            ) : (
-              <span className="muted">Nobody yet</span>
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt>Comments</dt>
-          <dd>{item.comments}</dd>
-        </div>
-      </dl>
+
       {item.kind === "pull" && <PullReview pull={pull} onLoad={onLoadPull} />}
-      {item.labels.length > 0 && (
-        <ul className="label-list" aria-label="Labels">
-          {item.labels.map((label) => (
-            <li key={label}>{label}</li>
-          ))}
-        </ul>
+
+      <section className="thread-body" aria-label="Description">
+        <p className="eyebrow">Description</p>
+        {item.excerpt ? (
+          <Markdown text={item.excerpt} className="issue-excerpt" />
+        ) : (
+          <p className="issue-excerpt muted">No description provided.</p>
+        )}
+        {truncated && (
+          <a className="read-more" href={item.url} target="_blank" rel="noreferrer">
+            Continue reading on GitHub <Icon name="link" size={13} />
+          </a>
+        )}
+      </section>
+
+      {comments?.status === "error" && (
+        <p className="inline-error" role="alert">
+          {comments.error}
+        </p>
       )}
-      <p className="issue-excerpt">{item.excerpt || "No description provided."}</p>
-      <div className="issue-actions">
-        <a href={item.url} target="_blank" rel="noreferrer" className="btn btn-plain">
+      {comments?.status === "loading" && (
+        <div className="thread-body">
+          <Skeleton lines={4} />
+        </div>
+      )}
+      {comments?.status === "ready" && comments.data && (
+        <section className="thread-body" aria-label="Comments">
+          <p className="eyebrow">Comments</p>
+          <ol className="comment-list" aria-label={`Comments on #${item.number}`}>
+            {comments.data.items.map((comment, index) => (
+              <motion.li
+                key={comment.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: t(index * 0.05), duration: t(0.25) }}
+              >
+                <p className="comment-meta">
+                  <strong>{comment.author}</strong>
+                  <span>{ago(comment.createdAt, now)}</span>
+                </p>
+                <Markdown text={comment.excerpt || "(empty comment)"} className="issue-excerpt" />
+              </motion.li>
+            ))}
+            {comments.data.more && (
+              <li className="comment-more">
+                Showing the first {comments.data.items.length}.{" "}
+                <a href={item.url} target="_blank" rel="noreferrer">
+                  Read the rest on GitHub
+                </a>
+              </li>
+            )}
+          </ol>
+        </section>
+      )}
+
+      <footer className="issue-actions">
+        <a href={item.url} target="_blank" rel="noreferrer" className="btn btn-primary">
           Open on GitHub
           <Icon name="link" size={14} />
         </a>
@@ -376,42 +439,7 @@ function IssueDetail({
             Load comments · 1 request
           </button>
         )}
-        {comments?.status === "loading" && (
-          <span className="muted">
-            <Icon name="loader" size={14} className="spin" /> Loading comments…
-          </span>
-        )}
-      </div>
-      {comments?.status === "error" && (
-        <p className="inline-error" role="alert">
-          {comments.error}
-        </p>
-      )}
-      {comments?.status === "ready" && comments.data && (
-        <ol className="comment-list" aria-label={`Comments on #${item.number}`}>
-          {comments.data.items.map((comment, index) => (
-            <motion.li
-              key={comment.id}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: t(index * 0.04), duration: t(0.2)}}
-            >
-              <p className="comment-meta">
-                <strong>{comment.author}</strong> · {ago(comment.createdAt, now)}
-              </p>
-              <p className="issue-excerpt">{comment.excerpt || "(empty comment)"}</p>
-            </motion.li>
-          ))}
-          {comments.data.more && (
-            <li className="comment-more">
-              Showing the first {comments.data.items.length}.{" "}
-              <a href={item.url} target="_blank" rel="noreferrer">
-                Read the rest on GitHub
-              </a>
-            </li>
-          )}
-        </ol>
-      )}
+      </footer>
     </motion.article>
   );
 }
@@ -420,9 +448,14 @@ function PullReview({ pull, onLoad }: { pull?: Loadable<PullDetails>; onLoad: ()
   if (!pull || pull.status === "idle" || pull.status === "error")
     return (
       <div className="pull-review is-idle">
-        <p className="muted">Size, files changed, requested reviewers, and review verdicts.</p>
+        <span className="review-icon" aria-hidden="true">
+          <Icon name="pull" size={18} />
+        </span>
+        <div className="review-copy">
+          <strong>Review details</strong>
+          <p className="muted">Lines changed, files, requested reviewers, and each reviewer’s verdict.</p>
+        </div>
         <button className="btn btn-plain" onClick={onLoad}>
-          <Icon name="pull" size={14} />
           Load review details · 2 requests
         </button>
         {pull?.status === "error" && (

@@ -550,7 +550,7 @@ describe("explorer interactions", () => {
       labels: [{ name: "spooky" }],
       created_at: "2026-11-01T00:00:00Z",
       updated_at: "2026-11-10T00:00:00Z",
-      body: "<img src=x onerror=alert(1)> body",
+      body: "<img src=x onerror=alert(1)> body **bold** `code` [bad](javascript:alert(1)) [good](https://example.com/x) ![pic](https://example.com/p.png)",
       ...extra,
     });
     const calls: string[] = [];
@@ -561,7 +561,7 @@ describe("explorer interactions", () => {
         if (input.includes("/comments"))
           return new Response(
             JSON.stringify([
-              { id: 9, user: { login: "boo" }, created_at: "2026-11-11T00:00:00Z", body: "<script>x</script> seen" },
+              { id: 9, user: { login: "boo" }, created_at: "2026-11-11T00:00:00Z", body: "<script>x</script>\n\nseen" },
             ]),
           );
         if (input.includes("/issues?"))
@@ -593,14 +593,24 @@ describe("explorer interactions", () => {
       e.textContent?.includes("Haunted hinge 2"),
     )!;
     await act(async () => pr.click());
-    expect(container.querySelector(".issue-excerpt")?.textContent).toContain("<img src=x");
+    const body = container.querySelector(".issue-excerpt")!;
+    expect(body.textContent).toContain("body");
+    expect(body.textContent).not.toContain("onerror");
+    expect(body.querySelector("strong")?.textContent).toBe("bold");
+    expect(body.querySelector("code")?.textContent).toBe("code");
     expect(container.querySelector(".issue-detail img")).toBeNull();
+    const links = [...body.querySelectorAll("a")];
+    expect(links.some((a) => (a.getAttribute("href") ?? "").startsWith("javascript"))).toBe(false);
+    const good = links.find((a) => a.textContent === "good")!;
+    expect(good.getAttribute("href")).toBe("https://example.com/x");
+    expect(good.getAttribute("rel")).toContain("noreferrer");
+    expect(body.querySelector(".md-image")?.getAttribute("href")).toBe("https://example.com/p.png");
     expect(
       container.querySelector<HTMLAnchorElement>(".issue-actions a")?.getAttribute("href"),
     ).toBe("https://github.com/expressjs/express/pull/2");
     expect(calls.filter((c) => c.includes("/comments"))).toHaveLength(0);
     await click("Load comments · 1 request");
-    expect(container.querySelector(".comment-list")?.textContent).toContain("<script>x</script> seen");
+    expect(container.querySelector(".comment-list")?.textContent).toContain("seen");
     expect(container.querySelector(".comment-list script")).toBeNull();
     expect(calls.filter((c) => c.includes("/comments"))).toHaveLength(1);
   });
