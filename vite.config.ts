@@ -2,6 +2,8 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  // Relative asset paths: works at a domain root and under a subpath such as GitHub Pages /Kiroween/.
+  base: "./",
   test: {
     setupFiles: ["./tests/setup.ts"],
   },
@@ -17,7 +19,6 @@ export default defineConfig({
           if (!id.includes("node_modules")) return;
           if (/[\\/]@phosphor-icons[\\/]/.test(id)) return "icons";
           if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
-          if (/[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) return "motion";
           if (/[\\/](cmdk|@radix-ui)[\\/]/.test(id)) return "palette";
         },
       },

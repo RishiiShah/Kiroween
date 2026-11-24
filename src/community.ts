@@ -237,15 +237,17 @@ export function parseIssues(data: unknown, repository: string): Issue[] {
   return issues.slice(0, COMMUNITY_LIMITS.issues);
 }
 
-export async function fetchIssues(repository: string, signal?: AbortSignal) {
+export async function fetchIssues(repository: string, signal?: AbortSignal, page = 1) {
+  const pageQuery = page > 1 ? `&page=${Math.floor(page)}` : "";
   const { data, more, cachedAt } = await api(
     repository,
-    `/issues?state=open&sort=updated&direction=desc&per_page=${COMMUNITY_LIMITS.issues}`,
+    `/issues?state=open&sort=updated&direction=desc&per_page=${COMMUNITY_LIMITS.issues}${pageQuery}`,
     signal,
   );
   return {
     items: parseIssues(data, repository),
     more,
+    page,
     fetchedAt: new Date(cachedAt ?? Date.now()).toISOString(),
   };
 }

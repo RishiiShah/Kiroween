@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
   ASSOCIATION_LABEL,
   ago,
@@ -14,7 +14,16 @@ import { Avatar } from "./People";
 import type { CommentList, IssueList, Loadable } from "./useCommunity";
 import { Icon, Skeleton, t } from "./ui";
 import { AgeHistogram } from "./charts";
-import { Markdown } from "./RichText";
+import { Suspense, lazy } from "react";
+const LazyMarkdown = lazy(() => import("./RichText").then((mod) => ({ default: mod.Markdown })));
+/** Markdown renderer loads on first use; plain text shows meanwhile. */
+function Markdown({ text, className }: { text: string; className?: string }) {
+  return (
+    <Suspense fallback={<p className={`${className ?? ""} md-fallback`}>{text}</p>}>
+      <LazyMarkdown text={text} className={className} />
+    </Suspense>
+  );
+}
 import { threadAgeBuckets } from "./activity";
 
 type Kind = Issue["kind"];
@@ -28,6 +37,8 @@ type Props = {
   pulls?: Record<number, Loadable<PullDetails>>;
   onLoadPull?: (number: number) => void;
   focus?: number | null;
+  more?: { status: "idle" | "loading" | "error"; error?: string };
+  onLoadMore?: () => void;
 };
 type Sort = "updated" | "comments" | "quiet";
 
@@ -56,6 +67,8 @@ export function Issues({
   pulls = {},
   onLoadPull = () => {},
   focus = null,
+  more = { status: "idle" },
+  onLoadMore = () => {},
 }: Props) {
   const [sort, setSort] = useState<Sort>("updated");
   const [query, setQuery] = useState("");
@@ -177,7 +190,15 @@ export function Issues({
           <strong>{stats.quiet}</strong> quiet {QUIET_DAYS}+ days
         </span>
         {data?.more && (
-          <span className="muted">Newest {data.items.length} open items read; more exist</span>
+          <button className="link-btn" onClick={onLoadMore} disabled={more.status === "loading"}>
+            <Icon name={more.status === "loading" ? "loader" : "download"} size={13} className={more.status === "loading" ? "spin" : ""} />
+            {more.status === "loading" ? "Loading…" : `Load 100 more · 1 request (${data.items.length} read)`}
+          </button>
+        )}
+        {more.status === "error" && (
+          <span className="inline-error" role="alert">
+            {more.error}
+          </span>
         )}
         <button className="link-btn" onClick={onLoad}>
           <Icon name="refresh" size={13} />
@@ -215,7 +236,7 @@ export function Issues({
         <div className="split">
           <ul className="issue-list">
             {visible.map((item, index) => (
-              <motion.li
+              <m.li
                 layout="position"
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -253,7 +274,7 @@ export function Issues({
                     {item.comments}
                   </span>
                 </button>
-              </motion.li>
+              </m.li>
             ))}
           </ul>
           <IssueDetail
@@ -305,7 +326,7 @@ function IssueDetail({
   const kindLabel = item.kind === "pull" ? (item.draft ? "Draft" : "Open") : "Open";
   const truncated = item.excerpt.endsWith("…");
   return (
-    <motion.article
+    <m.article
       key={item.number}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
@@ -403,7 +424,7 @@ function IssueDetail({
           <p className="eyebrow">Comments</p>
           <ol className="comment-list" aria-label={`Comments on #${item.number}`}>
             {comments.data.items.map((comment, index) => (
-              <motion.li
+              <m.li
                 key={comment.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -414,7 +435,7 @@ function IssueDetail({
                   <span>{ago(comment.createdAt, now)}</span>
                 </p>
                 <Markdown text={comment.excerpt || "(empty comment)"} className="issue-excerpt" />
-              </motion.li>
+              </m.li>
             ))}
             {comments.data.more && (
               <li className="comment-more">
@@ -440,7 +461,7 @@ function IssueDetail({
           </button>
         )}
       </footer>
-    </motion.article>
+    </m.article>
   );
 }
 
@@ -476,7 +497,7 @@ function PullReview({ pull, onLoad }: { pull?: Loadable<PullDetails>; onLoad: ()
   const latest = new Map<string, PullDetails["reviews"][number]>();
   for (const review of data.reviews) latest.set(review.author, review);
   return (
-    <motion.div
+    <m.div
       className="pull-review"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
@@ -485,13 +506,13 @@ function PullReview({ pull, onLoad }: { pull?: Loadable<PullDetails>; onLoad: ()
         <span className="add">+{data.additions.toLocaleString()}</span>
         <span className="del">−{data.deletions.toLocaleString()}</span>
         <span className="diffbar" aria-hidden="true">
-          <motion.i
+          <m.i
             className="add"
             initial={{ width: 0 }}
             animate={{ width: `${(data.additions / total) * 100}%` }}
             transition={{ duration: t(0.5)}}
           />
-          <motion.i
+          <m.i
             className="del"
             initial={{ width: 0 }}
             animate={{ width: `${(data.deletions / total) * 100}%` }}
@@ -534,6 +555,6 @@ function PullReview({ pull, onLoad }: { pull?: Loadable<PullDetails>; onLoad: ()
           <p className="muted">No reviews or review requests yet.</p>
         )}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

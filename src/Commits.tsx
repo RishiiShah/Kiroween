@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CodeFrequency, Donut, PunchCard } from "./charts";
 import { ago, profileUrl } from "./community";
@@ -179,7 +179,7 @@ export function Commits({ snapshot, auto, graph, insights, commits, onLoadGraph,
               </div>
               <ol className="graph" aria-label={`Commit graph, ${layout.rows.length} commits, newest first`}>
                 {layout.rows.map((row, index) => (
-                  <motion.li
+                  <m.li
                     key={row.commit.sha}
                     className={`graph-row ${selected === row.commit.sha ? "is-selected" : ""} ${matches(row) ? "" : "is-dim"}`}
                     initial={{ opacity: 0, x: -6 }}
@@ -211,7 +211,7 @@ export function Commits({ snapshot, auto, graph, insights, commits, onLoadGraph,
                       </span>
                       <code className="graph-sha">{row.commit.sha.slice(0, 7)}</code>
                     </button>
-                  </motion.li>
+                  </m.li>
                 ))}
               </ol>
             </>
@@ -391,7 +391,7 @@ function GraphCell({
           <path key={`out-${parent}`} d={curve(x, mid, laneX(target), ROW)} className={className} />
         );
       })}
-      <motion.circle
+      <m.circle
         cx={x}
         cy={mid}
         className={`node lane-${row.lane % 6} ${merge ? "is-merge" : ""} ${row.commit.refs.length ? "is-ref" : ""}`}
@@ -431,7 +431,7 @@ function CommitPanel({
   const total = data ? Math.max(1, data.additions + data.deletions) : 1;
   const peak = data ? Math.max(1, ...data.files.map((file) => file.additions + file.deletions)) : 1;
   return (
-    <motion.aside
+    <m.aside
       key={commit.sha}
       className="commit-panel"
       aria-labelledby="commit-title"
@@ -496,8 +496,8 @@ function CommitPanel({
               <span className="add">+{data.additions.toLocaleString()}</span>
               <span className="del">−{data.deletions.toLocaleString()}</span>
               <span className="diffbar" aria-hidden="true">
-                <motion.i className="add" initial={{ width: 0 }} animate={{ width: `${(data.additions / total) * 100}%` }} />
-                <motion.i className="del" initial={{ width: 0 }} animate={{ width: `${(data.deletions / total) * 100}%` }} />
+                <m.i className="add" initial={{ width: 0 }} animate={{ width: `${(data.additions / total) * 100}%` }} />
+                <m.i className="del" initial={{ width: 0 }} animate={{ width: `${(data.deletions / total) * 100}%` }} />
               </span>
               <span className="muted">
                 {data.files.length}
@@ -506,7 +506,7 @@ function CommitPanel({
             </div>
             <ul className="file-list" aria-label="Changed files">
               {data.files.map((file, index) => (
-                <motion.li
+                <m.li
                   key={file.path}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -521,14 +521,14 @@ function CommitPanel({
                   <a href={file.url} target="_blank" rel="noreferrer" className="file-path" title={file.path}>
                     {file.path}
                   </a>
-                  <span className="file-bar" aria-label={`${file.additions} added, ${file.deletions} removed`}>
+                  <span className="file-bar" role="img" aria-label={`${file.additions} added, ${file.deletions} removed`}>
                     <i className="add" style={{ width: `${(file.additions / peak) * 100}%` }} />
                     <i className="del" style={{ width: `${(file.deletions / peak) * 100}%` }} />
                   </span>
                   <span className="file-num">
                     <span className="add">+{file.additions}</span> <span className="del">−{file.deletions}</span>
                   </span>
-                </motion.li>
+                </m.li>
               ))}
             </ul>
           </>
@@ -542,6 +542,6 @@ function CommitPanel({
       >
         Open commit on GitHub <Icon name="link" size={14} />
       </a>
-    </motion.aside>
+    </m.aside>
   );
 }

@@ -2,7 +2,7 @@ import { t } from "./ui";
 import { bin, max } from "d3-array";
 import { scaleBand, scaleLinear, scaleTime } from "d3-scale";
 import { arc, area, curveMonotoneX, pie } from "d3-shape";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { scaleQuantize, scaleSqrt, scaleSymlog } from "d3-scale";
 import { bisector } from "d3-array";
@@ -25,7 +25,7 @@ export function useTip() {
   }, []);
   const hide = useCallback(() => setTip(null), []);
   const node = tip ? (
-    <motion.div
+    <m.div
       className="chart-tip"
       style={{ left: tip.x, top: tip.y }}
       initial={{ opacity: 0, y: 4 }}
@@ -34,7 +34,7 @@ export function useTip() {
       aria-hidden="true"
     >
       {tip.text}
-    </motion.div>
+    </m.div>
   ) : null;
   return { show, hide, node };
 }
@@ -91,7 +91,7 @@ export function Donut({
           {total === 0
             ? null
             : arcs.map((slice, index) => (
-                <motion.path
+                <m.path
                   key={slice.data.key}
                   d={shape(slice) ?? ""}
                   className={`donut-slice ${slice.data.className}`}
@@ -100,7 +100,7 @@ export function Donut({
                   transition={{ delay: t(0.08 * index), duration: t(0.45), ease: EASE }}
                 >
                   <title>{`${slice.data.label}: ${slice.data.value}`}</title>
-                </motion.path>
+                </m.path>
               ))}
         </g>
         <text
@@ -176,7 +176,7 @@ export function BranchAgeChart({
               <text x={left - 10} y={y + 15} textAnchor="end" className="bar-label">
                 {branch.name.length > 20 ? `${branch.name.slice(0, 19)}…` : branch.name}
               </text>
-              <motion.rect
+              <m.rect
                 x={left}
                 y={y + 4}
                 height={16}
@@ -187,7 +187,7 @@ export function BranchAgeChart({
                 transition={{ delay: t(0.05 * index), duration: t(0.6), ease: EASE }}
               >
                 <title>{`${branch.name}: tip ${branch.days} days old`}</title>
-              </motion.rect>
+              </m.rect>
               <text x={x(branch.days) + 6} y={y + 16} className="bar-value">
                 {branch.days}d
               </text>
@@ -281,7 +281,7 @@ export function AgeHistogram({
                 const h = (height - bottom) - y(value);
                 base -= h;
                 return value ? (
-                  <motion.rect
+                  <m.rect
                     key={kind}
                     x={x(bucket.label)}
                     width={x.bandwidth()}
@@ -292,7 +292,7 @@ export function AgeHistogram({
                     transition={{ delay: t(0.05 * index), duration: t(0.55), ease: EASE }}
                   >
                     <title>{`${bucket.label}: ${value} ${kind === "pull" ? "pull requests" : "issues"}`}</title>
-                  </motion.rect>
+                  </m.rect>
                 ) : null;
               })}
               <text
@@ -378,7 +378,7 @@ export function CommitTimeline({
             </text>
           </g>
         ))}
-        <motion.path
+        <m.path
           d={shape(bins) ?? ""}
           fill="url(#timeline-fill)"
           className="timeline-area"
@@ -387,7 +387,7 @@ export function CommitTimeline({
           transition={{ duration: t(0.8)}}
         />
         {times.map((time, index) => (
-          <motion.circle
+          <m.circle
             key={`${+time}-${index}`}
             cx={x(time)}
             cy={height - bottom - 4}
@@ -404,7 +404,7 @@ export function CommitTimeline({
             }
           >
             <title>{time.toLocaleString()}</title>
-          </motion.circle>
+          </m.circle>
         ))}
         <g transform={`translate(${x(end)} 0)`}>
           <line y1={top} y2={height - bottom} className="threshold" />
@@ -460,7 +460,7 @@ export function CalendarHeatmap({ weeks }: { weeks: Week[] }) {
           </text>
         ))}
         {weeks.map((week, column) => (
-          <motion.g
+          <m.g
             key={week.week}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -486,7 +486,7 @@ export function CalendarHeatmap({ weeks }: { weeks: Week[] }) {
                 />
               );
             })}
-          </motion.g>
+          </m.g>
         ))}
       </svg>
       <p className="legend heat-legend" aria-hidden="true">
@@ -530,7 +530,7 @@ export function ReleaseTimeline({ releases, observedAt }: { releases: Release[];
       <svg
         width={width}
         height={height}
-        role="img"
+        role="group"
         aria-label={`${items.length} releases from ${items[0].tag} to ${items[items.length - 1].tag}${median !== null ? `; median ${Math.round(median)} days apart` : ""}.`}
       >
         <line x1={16} x2={width - 16} y1={axis} y2={axis} className="axis" />
@@ -543,7 +543,7 @@ export function ReleaseTimeline({ releases, observedAt }: { releases: Release[];
           const cx = x(new Date(release.publishedAt));
           const stem = levels[index] * 20 + 16;
           return (
-            <motion.g
+            <m.g
               key={release.tag}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -565,7 +565,7 @@ export function ReleaseTimeline({ releases, observedAt }: { releases: Release[];
                   </text>
                 </a>
               )}
-            </motion.g>
+            </m.g>
           );
         })}
       </svg>
@@ -613,7 +613,7 @@ export function RankBars({ rows, unit, label }: { rows: RankRow[]; unit: string;
             </span>
           </span>
           <span className="rank-track" aria-hidden="true">
-            <motion.span
+            <m.span
               className="rank-fill"
               initial={{ width: 0 }}
               animate={{ width: `${(row.value / peak) * 100}%` }}
@@ -691,7 +691,7 @@ export function CodeFrequency({ weeks }: { weeks: CodeWeek[] }) {
             {tick.toLocaleDateString(undefined, { month: "short", year: "2-digit" })}
           </text>
         ))}
-        <motion.path
+        <m.path
           d={adds(data) ?? ""}
           className="freq-add"
           initial={{ opacity: 0, scaleY: 0 }}
@@ -699,7 +699,7 @@ export function CodeFrequency({ weeks }: { weeks: CodeWeek[] }) {
           style={{ originY: `${y(0)}px` }}
           transition={{ duration: t(0.7), ease: EASE }}
         />
-        <motion.path
+        <m.path
           d={dels(data) ?? ""}
           className="freq-del"
           initial={{ opacity: 0, scaleY: 0 }}
@@ -775,7 +775,7 @@ export function PunchCard({ punches }: { punches: Punch[] }) {
               }
             />
             {punch.count > 0 && (
-              <motion.circle
+              <m.circle
                 cx={left + punch.hour * cell + cell / 2}
                 cy={top + punch.day * cell + cell / 2}
                 className="punch-dot"

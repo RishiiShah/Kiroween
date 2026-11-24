@@ -10,6 +10,14 @@ import { reviewKey } from "../src/reviews";
 const demo = recordedDemo as Snapshot;
 let root: Root;
 let container: HTMLDivElement;
+/** Lets lazily loaded chunks (palette, Markdown, motion features) finish loading. */
+async function settle() {
+  for (let i = 0; i < 3; i++)
+    await act(async () => {
+      await vi.dynamicImportSettled();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+}
 async function mountRaw() {
   await act(async () => {
     root.render(<App />);
@@ -593,6 +601,7 @@ describe("explorer interactions", () => {
       e.textContent?.includes("Haunted hinge 2"),
     )!;
     await act(async () => pr.click());
+    await settle();
     const body = container.querySelector(".issue-excerpt")!;
     expect(body.textContent).toContain("body");
     expect(body.textContent).not.toContain("onerror");
@@ -610,6 +619,7 @@ describe("explorer interactions", () => {
     ).toBe("https://github.com/expressjs/express/pull/2");
     expect(calls.filter((c) => c.includes("/comments"))).toHaveLength(0);
     await click("Load comments · 1 request");
+    await settle();
     expect(container.querySelector(".comment-list")?.textContent).toContain("seen");
     expect(container.querySelector(".comment-list script")).toBeNull();
     expect(calls.filter((c) => c.includes("/comments"))).toHaveLength(1);
@@ -745,6 +755,7 @@ describe("explorer interactions", () => {
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
     });
+    await settle();
     expect(document.querySelector(".palette")).toBeTruthy();
     const items = [...document.querySelectorAll<HTMLElement>("[cmdk-item]")];
     expect(items.filter((item) => demo.findings.some((f) => item.textContent?.includes(f.title))).length).toBe(
@@ -757,6 +768,7 @@ describe("explorer interactions", () => {
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
     });
+    await settle();
     const finding = demo.findings[0];
     const open = [...document.querySelectorAll<HTMLElement>("[cmdk-item]")].find((item) =>
       item.textContent?.includes(finding.title),
@@ -847,7 +859,7 @@ describe("explorer interactions", () => {
       expect(chart.getAttribute("aria-label")).toContain(finding.path);
     expect(container.querySelectorAll(".donut-slice").length).toBeGreaterThan(0);
     expect(container.querySelectorAll(".timeline-dot")).toHaveLength(
-      demo.findings.filter((f) => f.zone === "activity").length,
+      demo.commitDates?.length ?? demo.findings.filter((f) => f.zone === "activity").length,
     );
     const quiet = container.querySelector<SVGGElement>(".bar-row.is-quiet")!;
     await act(async () => quiet.dispatchEvent(new MouseEvent("click", { bubbles: true })));
@@ -869,7 +881,7 @@ describe("explorer interactions", () => {
     expect(container.querySelector(".sidebar")).toBeNull();
     expect(calls.filter((c) => c.includes("api.github.com"))).toHaveLength(0);
     await click("Open the demo dashboard");
-    expect(window.location.hash).toBe("#/dashboard");
+    expect(window.location.hash).toBe("#/dashboard?demo=1");
     expect(container.querySelector(".sidebar")).toBeTruthy();
     expect(container.textContent).toContain("BUNDLED DEMO");
     expect(calls.filter((c) => c.includes("api.github.com")).length).toBeGreaterThan(0);
@@ -1017,5 +1029,56 @@ describe("explorer interactions", () => {
     expect(calls.filter((c) => c.includes("/issues?"))).toHaveLength(1);
     expect(calls.some((c) => c.includes("/languages") || c.includes("/contributors"))).toBe(false);
     expect(container.textContent).toContain("Paused automatic loading to save quota");
+  });
+
+  it("opens deep links to a view and keeps the address shareable", async () => {
+    window.location.hash = "#/dashboard?demo=1&view=house";
+    await mountRaw();
+    expect(container.querySelector(".view-head h2")?.textContent).toBe("House map");
+    expect(container.querySelectorAll(".room").length).toBeGreaterThan(0);
+    await click("Commits");
+    expect(window.location.hash).toBe("#/dashboard?demo=1&view=commits");
+  });
+
+  it("draws the house map from the file tree and opens findings from haunted rooms", async () => {
+    await mountRaw();
+    await click("House map");
+    const haunted = container.querySelector<SVGGElement>('.room[role="button"]')!;
+    expect(haunted).toBeTruthy();
+    await act(async () => haunted.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(container.querySelector(".inspector")).toBeTruthy();
+    const listed = container.querySelectorAll(".house-side .attention-list li").length;
+    expect(listed).toBe(demo.findings.filter((f) => f.zone === "unfinished").length);
+  });
+
+  it("keeps an optional token in memory only and sends it only to the GitHub API", async () => {
+    const seen: { url: string; auth: string | null }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string, init?: RequestInit) => {
+        seen.push({ url: input, auth: new Headers(init?.headers).get("authorization") });
+        return new Response(JSON.stringify(input.includes("api.github.com") ? [] : demo));
+      }),
+    );
+    await mountRaw();
+    await expand("Settings");
+    const field = container.querySelector<HTMLInputElement>("#gh-token")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "ghp_" + "a".repeat(36));
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await click("Use for this tab");
+    expect(container.textContent).toContain("Token active for this tab");
+    seen.length = 0;
+    await click("Rescan live");
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    const api = seen.filter((s) => s.url.startsWith("https://api.github.com/"));
+    expect(api.length).toBeGreaterThan(0);
+    expect(api.every((s) => s.auth === "Bearer ghp_" + "a".repeat(36))).toBe(true);
+    expect(seen.filter((s) => !s.url.startsWith("https://api.github.com/")).every((s) => s.auth === null)).toBe(true);
+    const stored = JSON.stringify({ ...localStorage });
+    expect(stored).not.toContain("ghp_");
+    await click("Forget token");
+    expect(container.textContent).not.toContain("Token active for this tab");
   });
 });

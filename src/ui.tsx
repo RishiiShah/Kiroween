@@ -1,4 +1,4 @@
-import { animate, useReducedMotion } from "motion/react";
+import { useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
@@ -217,21 +217,26 @@ export function Logo({ size = 20 }: { size?: number }) {
   );
 }
 
-/** Counts up on mount. Screen readers get the final value only. */
+/** Counts up on mount with an ease-out curve. Screen readers get the final value only. */
 export function NumberTicker({ value, className }: { value: number; className?: string }) {
   const reduce = useReducedMotion();
   const [shown, setShown] = useState(reduce ? value : 0);
   useEffect(() => {
-    if (reduce) {
+    if (reduce || typeof requestAnimationFrame !== "function") {
       setShown(value);
       return;
     }
-    const controls = animate(0, value, {
-      duration: t(Math.min(1.2, 0.4 + value / 200)),
-      ease: [0.16, 1, 0.3, 1],
-      onUpdate: (latest) => setShown(Math.round(latest)),
-    });
-    return () => controls.stop();
+    const duration = t(Math.min(1.2, 0.4 + value / 200)) * 1000;
+    const start = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      setShown(Math.round(value * eased));
+      if (progress < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
   }, [value, reduce]);
   return (
     <span className={className}>

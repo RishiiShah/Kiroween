@@ -1,23 +1,19 @@
 # Implementation checklist
-
-- [x] Validate public repository URLs and evidence records.
-- [x] Implement bounded API reads and partial-result behavior.
-- [x] Generate commit, branch, TODO, dependency, and documentation observations.
-- [x] Implement haunted map, analyst table, filters, and evidence selection.
-- [x] Provide recorded demo, local persistence, explicit deletion, and export.
-- [x] Add neutral theme, keyboard controls, and reduced-motion styles.
-- [x] Keep subtle evidence transitions and manual motion reduction; remove decorative animation during layout simplification.
-- [x] Add opt-in synthesized ambience, volume/mute, background suspension, and lifecycle tests.
-- [x] Add navigation through visible findings with source-ownership tests.
-- [x] Simplify default layout; collapse settings/filters and open evidence on selection.
-- [x] Add revision-specific local review notes, review filters, and compatible offline report import/export.
-- [x] Add locally hosted, role-specific OFL fonts with attribution and fallback stacks.
-- [x] Compare sampled snapshots without implying missing observations are resolved.
-- [x] Add native print/PDF layout with all findings, sources, scope, and notes.
-- [x] Verify live public API reads, automated tests, production build, and dependency audit.
-- [x] Document free deployment and service quotas.
-- [ ] Visually verify desktop/mobile layouts when browser preview host is available.
-- [ ] Verify custom-font rendering and actual print pagination in a real browser.
-- [ ] Verify perceived animation smoothness and audible levels in a real browser; native browser access was not approved during implementation.
-- [ ] Verify shell hook activation inside Kiro IDE 1.x or CLI V3.
-- [ ] Publish only when explicitly requested; no commits or pushes authorized.
+- [x] Validate public repository input (URL or owner/repo) and every evidence record.
+- [x] Bounded scan (≤ 8 REST calls) with raw.githubusercontent.com file sampling and partial-coverage warnings.
+- [x] Commit, branch, TODO, dependency, docs, tests, and sensitive-file observations with confidence and next steps.
+- [x] Home page, dashboard shell, deep links, command palette, J/K navigation, menu dismissal.
+- [x] Overview with plots: findings donut, branch ages, thread ages, 52-week heatmap, commit timeline, releases, languages.
+- [x] People view: contributors, recent committers, open work, assignees, newcomers waiting.
+- [x] Issues and pull requests: auto-load, split views, pagination, Markdown bodies/comments, PR review details.
+- [x] Commit graph with lane layout, commit detail files, commit types, punch card, code frequency.
+- [x] House map treemap of the file tree with haunted rooms; Compare view for two repositories.
+- [x] 45-minute response cache, spent-quota guard, free rate_limit checks, auto-load reserve, optional in-memory token.
+- [x] Six themes, theme-specific icon sets, custom logo, central motion pace, reduced motion, opt-in audio.
+- [x] Review notes, report import/export, snapshot comparison, Markdown summary, print.
+- [x] Lazy loading for motion features, command palette, and Markdown renderer.
+- [x] Re-record bundled demo with commit authors and repository facts.
+- [x] Visual QA with Playwright screenshots; axe accessibility audit with zero serious/critical issues in all themes.
+- [x] GitHub Pages workflow (tests, build, deploy) with relative asset paths.
+- [ ] One-time: enable GitHub Pages with source "GitHub Actions" in repository settings.
+- [ ] Verify shell hook activation inside Kiro IDE.

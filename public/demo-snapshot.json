@@ -3,8 +3,8 @@
   "repository": "expressjs/express",
   "description": "Fast, unopinionated, minimalist web framework for node.",
   "defaultBranch": "master",
-  "stars": 69672,
-  "observedAt": "2026-11-21T00:46:42.166Z",
+  "stars": 69683,
+  "observedAt": "2026-11-24T02:43:01.613Z",
   "revision": "43fca52d28a422c8be48fd489cbd4f2d6152bab6",
   "findings": [
     {
@@ -17,7 +17,7 @@
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/commit/43fca52d28a422c8be48fd489cbd4f2d6152bab6",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "commit:6389ae5e397acf28dd66765fbcd9c487f7a61e17",
@@ -29,7 +29,7 @@
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/commit/6389ae5e397acf28dd66765fbcd9c487f7a61e17",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "commit:bcc0551cb7a785b7772f77cb59ce55a2bc94975a",
@@ -41,7 +41,7 @@
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/commit/bcc0551cb7a785b7772f77cb59ce55a2bc94975a",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "commit:1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
@@ -53,7 +53,7 @@
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/commit/1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "commit:0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
@@ -65,7 +65,7 @@
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/commit/0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "commit:a419aa7350389a275ab45fde2e849ed1f02449ef",
@@ -77,55 +77,55 @@
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/commit/a419aa7350389a275ab45fde2e849ed1f02449ef",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "branch:4.x",
       "zone": "branches",
       "title": "4.x is still stirring",
       "path": "4.x",
-      "explanation": "Tip commit is 24 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
+      "explanation": "Tip commit is 27 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
       "action": "Check the branch diff for ongoing work.",
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/commit/2fd3d1f33651c27de04854093eb15a0f61ed1163",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "branch:5.x",
       "zone": "branches",
       "title": "5.x has been quiet",
       "path": "5.x",
-      "explanation": "Tip commit is 308 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
+      "explanation": "Tip commit is 311 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
       "action": "Ask the maintainer whether this branch should be kept, merged, or archived.",
       "confidence": "Medium",
       "severity": "review",
       "source": "https://github.com/expressjs/express/commit/9a3f7ff4120d7920a2d13809ff5ae78648c8a3d6",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "branch:5.0",
       "zone": "branches",
       "title": "5.0 has been quiet",
       "path": "5.0",
-      "explanation": "Tip commit is 801 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
+      "explanation": "Tip commit is 804 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
       "action": "Ask the maintainer whether this branch should be kept, merged, or archived.",
       "confidence": "Medium",
       "severity": "review",
       "source": "https://github.com/expressjs/express/commit/344b022fc7ed95cf07b46e097935e61151fd585f",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "branch:bsebas/check-first-referer",
       "zone": "branches",
       "title": "bsebas/check-first-referer has been quiet",
       "path": "bsebas/check-first-referer",
-      "explanation": "Tip commit is 307 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
+      "explanation": "Tip commit is 310 days old. The review threshold is 90 days; commit age does not reveal branch creation date or whether work was abandoned.",
       "action": "Ask the maintainer whether this branch should be kept, merged, or archived.",
       "confidence": "Medium",
       "severity": "review",
       "source": "https://github.com/expressjs/express/commit/28cb20ec1de55427063f28503407cd10ca4000b6",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     },
     {
       "id": "dependencies:package.json",
@@ -137,7 +137,7 @@
       "confidence": "High",
       "severity": "info",
       "source": "https://github.com/expressjs/express/blob/43fca52d28a422c8be48fd489cbd4f2d6152bab6/package.json",
-      "observedAt": "2026-11-21T00:46:42.166Z"
+      "observedAt": "2026-11-24T02:43:01.613Z"
     }
   ],
   "files": [
@@ -361,10 +361,192 @@
   "sampledFiles": 6,
   "branchesInspected": 4,
   "commitsInspected": 20,
+  "commitDates": [
+    "2026-11-02T20:15:26Z",
+    "2026-11-02T20:08:18Z",
+    "2026-11-02T06:25:45Z",
+    "2026-10-23T21:21:08Z",
+    "2026-10-17T16:42:03Z",
+    "2026-10-09T16:24:38Z",
+    "2026-10-09T15:54:30Z",
+    "2026-10-09T12:47:46Z",
+    "2026-10-09T11:53:54Z",
+    "2026-10-06T21:19:38Z",
+    "2026-10-06T21:16:14Z",
+    "2026-10-06T21:15:31Z",
+    "2026-10-06T18:57:44Z",
+    "2026-09-29T04:59:24Z",
+    "2026-09-29T01:34:58Z",
+    "2026-09-28T13:25:04Z",
+    "2026-09-15T17:52:26Z",
+    "2026-09-13T11:55:13Z",
+    "2026-09-11T12:54:15Z",
+    "2026-09-08T13:33:05Z"
+  ],
+  "commits": [
+    {
+      "sha": "43fca52d28a422c8be48fd489cbd4f2d6152bab6",
+      "date": "2026-11-02T20:15:26Z",
+      "author": "lazerg",
+      "login": "lazerg",
+      "avatarId": 20501725
+    },
+    {
+      "sha": "6389ae5e397acf28dd66765fbcd9c487f7a61e17",
+      "date": "2026-11-02T20:08:18Z",
+      "author": "dependabot[bot]",
+      "login": "dependabot[bot]",
+      "avatarId": 49699333
+    },
+    {
+      "sha": "bcc0551cb7a785b7772f77cb59ce55a2bc94975a",
+      "date": "2026-11-02T06:25:45Z",
+      "author": "dependabot[bot]",
+      "login": "dependabot[bot]",
+      "avatarId": 49699333
+    },
+    {
+      "sha": "1c6f1b0fe4000977b9a7b4f34097e4d527dd9824",
+      "date": "2026-10-23T21:21:08Z",
+      "author": "bhavya3024",
+      "login": "bhavya3024",
+      "avatarId": 15158756
+    },
+    {
+      "sha": "0dee2c52c7c873498f8ed7d8ee4ddd0a04d3ada8",
+      "date": "2026-10-17T16:42:03Z",
+      "author": "HyperionBurn",
+      "login": "HyperionBurn",
+      "avatarId": 108675775
+    },
+    {
+      "sha": "a419aa7350389a275ab45fde2e849ed1f02449ef",
+      "date": "2026-10-09T16:24:38Z",
+      "author": "krzysdz",
+      "login": "krzysdz",
+      "avatarId": 12915102
+    },
+    {
+      "sha": "6d2df035a95f3d1002be3e29997b7a4bfe976b5f",
+      "date": "2026-10-09T15:54:30Z",
+      "author": "noritaka1166",
+      "login": "noritaka1166",
+      "avatarId": 189505037
+    },
+    {
+      "sha": "cf6722bf89a86905281d9160b6482e08166b5ef0",
+      "date": "2026-10-09T12:47:46Z",
+      "author": "UlisesGascon",
+      "login": "UlisesGascon",
+      "avatarId": 5110813
+    },
+    {
+      "sha": "8c2fcfcb7d37c9c2e89363b7b86a092768c3a8a3",
+      "date": "2026-10-09T11:53:54Z",
+      "author": "fmtappendf",
+      "login": "fmtappendf",
+      "avatarId": 256807125
+    },
+    {
+      "sha": "9efc29e280018dafc1f0617f3a3d28f4e463b7be",
+      "date": "2026-10-06T21:19:38Z",
+      "author": "whoalin1",
+      "login": "whoalin1",
+      "avatarId": 207920491
+    },
+    {
+      "sha": "2717ae3cbf2bdc3f946d22ea6a4e0b5bd438b87b",
+      "date": "2026-10-06T21:16:14Z",
+      "author": "dependabot[bot]",
+      "login": "dependabot[bot]",
+      "avatarId": 49699333
+    },
+    {
+      "sha": "de777714df3fb1e81ac2d95f509c421478ab1e56",
+      "date": "2026-10-06T21:15:31Z",
+      "author": "dependabot[bot]",
+      "login": "dependabot[bot]",
+      "avatarId": 49699333
+    },
+    {
+      "sha": "9169cbe1127ed1f9bc4f80a70b82c412467dd156",
+      "date": "2026-10-06T18:57:44Z",
+      "author": "haimingZZ",
+      "login": "haimingZZ",
+      "avatarId": 21233013
+    },
+    {
+      "sha": "7ef98448f8b38099ab1ded55e458538ad47a51e7",
+      "date": "2026-09-29T04:59:24Z",
+      "author": "dependabot[bot]",
+      "login": "dependabot[bot]",
+      "avatarId": 49699333
+    },
+    {
+      "sha": "3b7e39fe74371ddabc77fed736dd22aa71c14f5c",
+      "date": "2026-09-29T01:34:58Z",
+      "author": "davetashner",
+      "login": "davetashner",
+      "avatarId": 5702882
+    },
+    {
+      "sha": "98bd4cd96b250d25e1672c36f49cfc743bc801e7",
+      "date": "2026-09-28T13:25:04Z",
+      "author": "lazerg",
+      "login": "lazerg",
+      "avatarId": 20501725
+    },
+    {
+      "sha": "9a34acf03cb818ff3f8bc40e44176e277a25cbb9",
+      "date": "2026-09-15T17:52:26Z",
+      "author": "cuishuang",
+      "login": "cuishuang",
+      "avatarId": 15921519
+    },
+    {
+      "sha": "3ce6d0eb86e9d93529ff3191c6bb5db8ce6e72c8",
+      "date": "2026-09-13T11:55:13Z",
+      "author": "UlisesGascon",
+      "login": "UlisesGascon",
+      "avatarId": 5110813
+    },
+    {
+      "sha": "53d4a0d606c0388f764f192b306ce0e90200e7e8",
+      "date": "2026-09-11T12:54:15Z",
+      "author": "Kimkoungsoo",
+      "login": "Kimkoungsoo",
+      "avatarId": 319395887
+    },
+    {
+      "sha": "bed501c695a61886399ee622875f3be933c716d8",
+      "date": "2026-09-08T13:33:05Z",
+      "author": "dependabot[bot]",
+      "login": "dependabot[bot]",
+      "avatarId": 49699333
+    }
+  ],
+  "meta": {
+    "forks": 25689,
+    "watchers": 1719,
+    "openIssues": 266,
+    "license": "MIT",
+    "topics": [
+      "express",
+      "javascript",
+      "nodejs",
+      "server"
+    ],
+    "createdAt": "2009-06-26T18:56:01Z",
+    "pushedAt": "2026-11-19T17:49:18Z",
+    "homepage": "https://expressjs.com/",
+    "archived": false,
+    "language": "JavaScript"
+  },
   "warnings": [
     "Activity covers the latest 20 commits only.",
     "Branch review is limited to 4 non-default branches.",
+    "6 source files were read from raw.githubusercontent.com, which does not use the API quota.",
     "TODO analysis samples 6 text files, at most 64 KiB each; it is not a full code or security audit."
   ],
-  "requests": 14
+  "requests": 8
 }

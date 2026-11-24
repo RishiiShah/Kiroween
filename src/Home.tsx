@@ -1,4 +1,4 @@
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { API_CACHE_TTL } from "./apiCache";
 import { Icon, Kbd, Logo, isMac, t } from "./ui";
 
@@ -52,9 +52,19 @@ const FEATURES = [
     body: "Mark findings reviewed, keep notes, export or import JSON, compare snapshots, copy Markdown, or print.",
   },
   {
+    icon: "ghost",
+    title: "House map",
+    body: "The file tree as a floor plan: folders become rooms sized by files, and ghosts mark where findings live.",
+  },
+  {
+    icon: "compare",
+    title: "Compare repositories",
+    body: "Put two public repositories side by side: activity, quiet branches, findings, stars, and pace.",
+  },
+  {
     icon: "command",
-    title: "Keyboard first",
-    body: "Command palette for every view, finding, thread, and theme. J and K step through findings.",
+    title: "Keyboard first, shareable",
+    body: "Command palette for every view, finding, and theme; J/K through findings; links that reopen the exact view.",
   },
 ];
 
@@ -93,18 +103,18 @@ export function Home(props: Props) {
       <main className="home-main" id="explorer" tabIndex={-1}>
         <div className="hero-wrap">
         <section className="hero-block" aria-labelledby="home-title">
-          <motion.p className="eyebrow hero-eyebrow" {...fade(0)}>
+          <m.p className="eyebrow hero-eyebrow" {...fade(0)}>
             <Icon name="ghost" size={13} /> Kiroween repository field guide
-          </motion.p>
-          <motion.h1 id="home-title" {...fade(0.06)}>
+          </m.p>
+          <m.h1 id="home-title" {...fade(0.06)}>
             Find your repository’s <em>ghosts</em>.
-          </motion.h1>
-          <motion.p className="lede" {...fade(0.12)}>
+          </m.h1>
+          <m.p className="lede" {...fade(0.12)}>
             Quiet branches, forgotten TODOs, pull requests nobody answered. Paste a public
             GitHub repository and walk through it in your browser, with every finding tied
             to its source.
-          </motion.p>
-          <motion.form className="hero-scan" onSubmit={onScan} aria-busy={busy} {...fade(0.18)}>
+          </m.p>
+          <m.form className="hero-scan" onSubmit={onScan} aria-busy={busy} {...fade(0.18)}>
             <label className="sr-only" htmlFor="home-url">
               Public GitHub repository
             </label>
@@ -125,7 +135,7 @@ export function Home(props: Props) {
               <Icon name={busy ? "loader" : "go"} size={16} className={busy ? "spin" : ""} />
               {busy ? "Investigating…" : "Investigate"}
             </button>
-          </motion.form>
+          </m.form>
           {busy ? (
             <p className="hero-progress" role="status">
               {progress}{" "}
@@ -134,20 +144,20 @@ export function Home(props: Props) {
               </button>
             </p>
           ) : (
-            <motion.p className="hero-alt" {...fade(0.24)}>
+            <m.p className="hero-alt" {...fade(0.24)}>
               No repository in mind?{" "}
               <button className="link-btn" onClick={onDemo}>
                 <Icon name="demo" size={14} /> Open the demo dashboard
               </button>{" "}
               <span className="muted">(a recorded scan of expressjs/express)</span>
-            </motion.p>
+            </m.p>
           )}
         </section>
         <HeroArt />
         </div>
 
         {(resume || history.length > 0) && (
-          <motion.section className="home-recent" aria-labelledby="recent-title" {...fade(0.3)}>
+          <m.section className="home-recent" aria-labelledby="recent-title" {...fade(0.3)}>
             <h2 id="recent-title" className="home-h2">
               Pick up where you left off
             </h2>
@@ -184,7 +194,7 @@ export function Home(props: Props) {
                   </button>
                 ))}
             </div>
-          </motion.section>
+          </m.section>
         )}
 
         <section id="features" className="home-features" aria-labelledby="features-title">
@@ -193,7 +203,7 @@ export function Home(props: Props) {
           </h2>
           <div className="feature-grid">
             {FEATURES.map((feature, index) => (
-              <motion.article
+              <m.article
                 key={feature.title}
                 className="feature"
                 initial={{ opacity: 0, y: 14 }}
@@ -205,7 +215,7 @@ export function Home(props: Props) {
                 </span>
                 <h3>{feature.title}</h3>
                 <p>{feature.body}</p>
-              </motion.article>
+              </m.article>
             ))}
           </div>
         </section>
@@ -220,9 +230,9 @@ export function Home(props: Props) {
                 <Icon name="check" size={15} /> Reads
               </h3>
               <ul>
-                <li>Public GitHub data only, with no token or account.</li>
+                <li>Public GitHub data only. No account needed; an optional token stays in this tab’s memory.</li>
                 <li>A bounded scan: at most 8 API calls, plus 6 source files from raw.githubusercontent.com.</li>
-                <li>Open threads (1 call) and repository details (4 calls) after the scan.</li>
+                <li>Responses are reused for 45 minutes, so revisits cost no quota.</li>
                 <li>Your notes and the last scan stay in this browser.</li>
               </ul>
             </div>
@@ -272,32 +282,32 @@ function HeroArt() {
             <stop offset="100%" className="stop-quiet-b" />
           </linearGradient>
         </defs>
-        <motion.path d="M70 40 L70 405" className="art-line art-main" {...draw(0.2)} />
-        <motion.path d="M70 150 C70 180 150 180 150 210 L150 290 C150 320 70 320 70 350" className="art-line art-feature" {...draw(0.7)} />
-        <motion.path d="M70 90 C70 120 240 110 240 150 L240 250" className="art-line art-quiet" {...draw(1.1)} />
+        <m.path d="M70 40 L70 405" className="art-line art-main" {...draw(0.2)} />
+        <m.path d="M70 150 C70 180 150 180 150 210 L150 290 C150 320 70 320 70 350" className="art-line art-feature" {...draw(0.7)} />
+        <m.path d="M70 90 C70 120 240 110 240 150 L240 250" className="art-line art-quiet" {...draw(1.1)} />
         {[90, 150, 210, 270, 390].map((y, i) => (
-          <motion.circle key={y} cx={70} cy={y} r={7} className="art-node" {...pop(0.35 + i * 0.12)} />
+          <m.circle key={y} cx={70} cy={y} r={7} className="art-node" {...pop(0.35 + i * 0.12)} />
         ))}
-        <motion.circle cx={70} cy={350} r={9} className="art-node is-merge" {...pop(1.6)} />
+        <m.circle cx={70} cy={350} r={9} className="art-node is-merge" {...pop(1.6)} />
         {[210, 250, 290].map((y, i) => (
-          <motion.circle key={y} cx={150} cy={y} r={6.5} className="art-node art-node-feature" {...pop(1 + i * 0.12)} />
+          <m.circle key={y} cx={150} cy={y} r={6.5} className="art-node art-node-feature" {...pop(1 + i * 0.12)} />
         ))}
         {[150, 200].map((y, i) => (
-          <motion.circle key={y} cx={240} cy={y} r={6.5} className="art-node art-node-quiet" {...pop(1.4 + i * 0.12)} />
+          <m.circle key={y} cx={240} cy={y} r={6.5} className="art-node art-node-quiet" {...pop(1.4 + i * 0.12)} />
         ))}
-        <motion.g {...pop(1.9)}>
+        <m.g {...pop(1.9)}>
           <rect x={86} y={28} width={74} height={24} rx={12} className="art-tag art-tag-main" />
           <text x={123} y={44} textAnchor="middle" className="art-tag-text">master</text>
-        </motion.g>
-        <motion.g {...pop(2.1)}>
+        </m.g>
+        <m.g {...pop(2.1)}>
           <rect x={166} y={278} width={112} height={24} rx={12} className="art-tag art-tag-feature" />
           <text x={222} y={294} textAnchor="middle" className="art-tag-text">feature merged</text>
-        </motion.g>
-        <motion.g {...pop(2.3)}>
+        </m.g>
+        <m.g {...pop(2.3)}>
           <rect x={256} y={137} width={136} height={26} rx={13} className="art-tag art-tag-quiet" />
           <text x={324} y={154} textAnchor="middle" className="art-tag-text">quiet for 801 days</text>
-        </motion.g>
-        <motion.g
+        </m.g>
+        <m.g
           className="art-ghost"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: [0, 1, 1], y: [10, 0, -6, 0] }}
@@ -306,7 +316,7 @@ function HeroArt() {
           <path d="M284 236 v-30 a26 26 0 0 1 52 0 v30 l-9 -7 -9 7 -8 -7 -8 7 -9 -7 z" />
           <circle cx={300} cy={208} r={3.5} className="art-eye" />
           <circle cx={318} cy={208} r={3.5} className="art-eye" />
-        </motion.g>
+        </m.g>
       </svg>
     </div>
   );

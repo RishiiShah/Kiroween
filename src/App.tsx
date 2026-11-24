@@ -1,6 +1,10 @@
 import { Overview } from "./Overview";
 import { Issues } from "./Issues";
 import { People } from "./People";
+import { House } from "./House";
+import { Compare } from "./RepoCompare";
+import { TokenPanel } from "./TokenPanel";
+import { hasToken, subscribeToken } from "./token";
 import { Commits } from "./Commits";
 import { branchRefs } from "./history";
 import { API_CACHE_TTL, clearApiCache, purge } from "./apiCache";
@@ -20,7 +24,7 @@ import {
   iconSetFor,
   type ThemeId,
 } from "./theme";
-import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import {
   isSnapshot,
@@ -32,14 +36,33 @@ import {
 } from "./scan";
 import "./style.css";
 import { EASE_OUT, Icon, IconSetContext, Kbd, Logo, isMac, t } from "./ui";
-import { MotionConfig, motion } from "motion/react";
-import { CommandPalette, type PaletteGroup } from "./CommandPalette";
+import { LazyMotion, MotionConfig, m } from "motion/react";
+import type { PaletteGroup } from "./CommandPalette";
 import { useSoundscape } from "./useSoundscape";
 import { parseReport, reportReviews, reviewKey, useReviews } from "./reviews";
 import { compareSnapshots, type Comparison } from "./compare";
+const CommandPalette = lazy(() => import("./CommandPalette").then((mod) => ({ default: mod.CommandPalette })));
+const loadMotion = () => import("./motionFeatures").then((mod) => mod.default);
 const CACHE = "poltergeist.snapshot.v1";
 const HISTORY = "poltergeist.history.v1";
 type Route = "home" | "dashboard";
+type ViewId = "overview" | "commits" | "people" | "issues" | "pulls" | "map" | "house" | "compare" | "table";
+const VIEWS: ViewId[] = ["overview", "commits", "people", "issues", "pulls", "map", "house", "compare", "table"];
+/** Deep link: #/dashboard?repo=owner/name&view=commits&zone=branches (or demo=1). */
+function readLink() {
+  const query = typeof window === "undefined" ? "" : window.location.hash.split("?")[1] ?? "";
+  const params = new URLSearchParams(query);
+  const repo = params.get("repo") ?? "";
+  const view = params.get("view") as ViewId | null;
+  const zone = params.get("zone");
+  return {
+    repo: /^[A-Za-z0-9][A-Za-z0-9-]{0,38}\/[A-Za-z0-9_.-]{1,100}$/.test(repo) ? repo : "",
+    demo: params.get("demo") === "1",
+    view: view && VIEWS.includes(view) ? view : null,
+    zone: zone === "activity" || zone === "branches" || zone === "unfinished" ? (zone as Zone) : null,
+    applied: false,
+  };
+}
 const readRoute = (): Route =>
   typeof window !== "undefined" && window.location.hash.startsWith("#/dashboard")
     ? "dashboard"
@@ -81,7 +104,7 @@ export function App() {
   const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [view, setView] = useState<"overview" | "commits" | "people" | "issues" | "pulls" | "map" | "table">("overview");
+  const [view, setView] = useState<ViewId>(readLink().view ?? "overview");
   const [zone, setZone] = useState<Zone | "all">("all");
   const [status, setStatus] = useState("all");
   const [query, setQuery] = useState("");
@@ -102,7 +125,8 @@ export function App() {
   }, [route]);
   function navigate(next: Route) {
     const hash = next === "dashboard" ? "#/dashboard" : "#/";
-    if (window.location.hash !== hash) window.location.hash = hash;
+    const already = next === "dashboard" ? window.location.hash.startsWith("#/dashboard") : !window.location.hash.startsWith("#/dashboard");
+    if (!already) window.location.hash = hash;
     setRoute(next);
     if (next === "dashboard") requestAnimationFrame(() => document.getElementById("explorer")?.focus({ preventScroll: true }));
   }
@@ -168,6 +192,7 @@ export function App() {
     else setTheme(next);
   }
   const quota = useSyncExternalStore(subscribeQuota, getQuota);
+  const tokenActive = useSyncExternalStore(subscribeToken, hasToken, () => false);
   const controller = useRef<AbortController | null>(null);
   const demo = useRef<Snapshot | null>(null);
   const current = useRef<Snapshot | null>(null);
@@ -204,7 +229,7 @@ export function App() {
         "Local storage is unavailable. Scans still work for this session.",
       );
     }
-    fetch("/demo-snapshot.json", { signal: loading.signal })
+    fetch(`${import.meta.env.BASE_URL}demo-snapshot.json`, { signal: loading.signal })
       .then((response) => {
         if (!response.ok) throw new Error("Bundled demo could not be loaded.");
         return response.json();
@@ -226,6 +251,12 @@ export function App() {
   useEffect(() => {
     if (selected) evidence.current?.focus({ preventScroll: true });
   }, [selected]);
+  useEffect(() => {
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    const preload = () => void import("./CommandPalette");
+    if (idle) idle(preload);
+    else setTimeout(preload, 2000);
+  }, []);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => keyHandler.current(event);
     document.addEventListener("keydown", onKey);
@@ -260,6 +291,39 @@ export function App() {
     };
   }, []);
 
+  const link = useRef(readLink());
+  useEffect(() => {
+    const target = link.current;
+    if (target.applied || !snapshot) return;
+    target.applied = true;
+    if (target.view) setView(target.view);
+    if (target.zone) setZone(target.zone);
+    if (target.demo) {
+      if (origin !== "demo" && demo.current) show(demo.current, "demo");
+    } else if (target.repo && target.repo.toLowerCase() !== snapshot.repository.toLowerCase()) {
+      setUrl(target.repo);
+      void scanFor(target.repo);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot]);
+  useEffect(() => {
+    if (route !== "dashboard" || !snapshot || !link.current.applied) return;
+    const params = new URLSearchParams();
+    if (origin === "demo") params.set("demo", "1");
+    else params.set("repo", snapshot.repository);
+    if (view !== "overview") params.set("view", view);
+    if (view === "map" && zone !== "all") params.set("zone", zone);
+    const hash = `#/dashboard?${params}`;
+    if (window.location.hash !== hash) window.history.replaceState(null, "", hash);
+  }, [route, snapshot, origin, view, zone]);
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setNotice("Link copied. It opens this repository and view.");
+    } catch {
+      setNotice("Clipboard access was blocked; copy the address bar instead.");
+    }
+  }
   async function scan(event: React.FormEvent) {
     event.preventDefault();
     await scanFor(url);
@@ -464,6 +528,8 @@ export function App() {
     overview: "Overview",
     people: "People",
     commits: "Commits",
+    house: "House map",
+    compare: "Compare repositories",
     issues: "Issues",
     pulls: "Pull requests",
     map: "Findings",
@@ -536,6 +602,8 @@ export function App() {
             { id: "go-overview", label: "Overview", icon: "home", onSelect: () => { navigate("dashboard"); go("overview"); } },
             { id: "go-people", label: "People", icon: "users", onSelect: () => { navigate("dashboard"); go("people"); } },
             { id: "go-commits", label: "Commit graph", icon: "graph", onSelect: () => { navigate("dashboard"); go("commits"); } },
+            { id: "go-house", label: "House map", hint: "file tree floor plan", icon: "ghost", onSelect: () => { navigate("dashboard"); go("house"); } },
+            { id: "go-compare", label: "Compare with another repository", icon: "compare", onSelect: () => { navigate("dashboard"); go("compare"); } },
             { id: "go-issues", label: "Issues", icon: "issue", onSelect: () => { navigate("dashboard"); go("issues"); } },
             { id: "go-pulls", label: "Pull requests", icon: "pull", onSelect: () => { navigate("dashboard"); go("pulls"); } },
             { id: "go-findings", label: "All findings", icon: "board", onSelect: () => { navigate("dashboard"); go("map"); } },
@@ -612,7 +680,7 @@ export function App() {
   ];
   const activePill = (on: boolean) =>
     on ? (
-      <motion.span
+      <m.span
         layoutId="nav-active"
         className="nav-active"
         aria-hidden="true"
@@ -621,6 +689,7 @@ export function App() {
     ) : null;
 
   return (
+    <LazyMotion features={loadMotion} strict>
     <MotionConfig
       reducedMotion={motionPaused ? "always" : "user"}
       transition={{ duration: t(0.4), ease: EASE_OUT }}
@@ -838,6 +907,25 @@ export function App() {
               <Icon name="table" size={16} />
               Analyst table
             </button>
+            <button
+              className="nav-item"
+              aria-current={view === "house" ? "page" : undefined}
+              onClick={() => go("house")}
+            >
+              {activePill(view === "house")}
+              <Icon name="ghost" size={16} />
+              House map
+            </button>
+            <p className="nav-heading">Tools</p>
+            <button
+              className="nav-item"
+              aria-current={view === "compare" ? "page" : undefined}
+              onClick={() => go("compare")}
+            >
+              {activePill(view === "compare")}
+              <Icon name="compare" size={16} />
+              Compare
+            </button>
           </nav>
         )}
 
@@ -848,7 +936,9 @@ export function App() {
               title="Unauthenticated GitHub API requests left this hour for your network"
             >
               <div className="quota-text">
-                <span>GitHub API</span>
+                <span>
+                  GitHub API{tokenActive ? <span className="token-badge">token</span> : null}
+                </span>
                 <span>
                   {quota.remaining}/{quota.limit}
                 </span>
@@ -983,6 +1073,8 @@ export function App() {
                     <output>{sound.volume}%</output>
                   </label>
                 )}
+                <p className="menu-heading">GitHub access</p>
+                <TokenPanel onNotice={setNotice} />
                 <p className="menu-heading">Data</p>
                 <button className="menu-item" onClick={() => void clearGitHubCache()}>
                   <Icon name="refresh" size={15} />
@@ -1026,6 +1118,10 @@ export function App() {
                     FROM CACHE
                   </span>
                 )}
+                <button className="rescan-btn" onClick={() => void copyLink()} title="Copy a link to this repository and view">
+                  <Icon name="link" size={13} />
+                  Copy link
+                </button>
                 {origin !== "imported" && (
                   <button
                     className="rescan-btn"
@@ -1089,7 +1185,11 @@ export function App() {
                           ? "Open issues, most recently active first. Select one to read it."
                           : view === "pulls"
                             ? "Open pull requests, with size and review state on request."
-                            : view === "map"
+                            : view === "house"
+                              ? "The file tree as a floor plan: rooms sized by files, ghosts where findings live."
+                              : view === "compare"
+                                ? "Put another public repository next to this one."
+                                : view === "map"
                               ? zone === "all"
                                 ? "Every sampled finding, grouped by where it lives in the house."
                                 : ZONES.find((item) => item.id === zone)?.subtitle
@@ -1233,14 +1333,18 @@ export function App() {
               </section>
             )}
 
-            <motion.div
+            <m.div
               className="view-body"
               key={`${view}-${zone}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: t(0.24), ease: [0.16, 1, 0.3, 1] }}
             >
-              {view === "commits" ? (
+              {view === "house" ? (
+                <House snapshot={snapshot} onOpen={selectTrace} />
+              ) : view === "compare" ? (
+                <Compare snapshot={snapshot} history={history} />
+              ) : view === "commits" ? (
                 <Commits
                   snapshot={snapshot}
                   auto={origin !== "imported"}
@@ -1275,6 +1379,8 @@ export function App() {
                   onLoadComments={community.loadComments}
                   pulls={community.pulls}
                   onLoadPull={community.loadPull}
+                  more={community.more}
+                  onLoadMore={() => void community.loadMoreIssues()}
                 />
               ) : view === "overview" ? (
                 <Overview
@@ -1322,7 +1428,7 @@ export function App() {
                         {findings
                           .filter((finding) => finding.zone === item.id)
                           .map((finding, index) => (
-                            <motion.button
+                            <m.button
                               key={finding.id}
                               layout="position"
                               initial={{ opacity: 0, y: 10 }}
@@ -1359,7 +1465,7 @@ export function App() {
                                 </span>
                                 <Icon name="next" size={14} className="trace-go" />
                               </span>
-                            </motion.button>
+                            </m.button>
                           ))}
                       </div>
                     </section>
@@ -1420,7 +1526,7 @@ export function App() {
                   </button>
                 </div>
               )}
-            </motion.div>
+            </m.div>
           </>
         ) : (
           <section className="landing" aria-labelledby="landing-title">
@@ -1546,7 +1652,7 @@ export function App() {
       </main>
 
       {snapshot && active && (
-        <motion.aside
+        <m.aside
           ref={evidence}
           initial={{ opacity: 0, x: 28 }}
           animate={{ opacity: 1, x: 0 }}
@@ -1569,7 +1675,7 @@ export function App() {
               <span className="sr-only">Close evidence</span>
             </button>
           </header>
-          <motion.div
+          <m.div
             key={active.id}
             className="evidence-detail"
             initial={{ opacity: 0, y: 6 }}
@@ -1614,7 +1720,7 @@ export function App() {
               Source pinned to the inspected revision. Review notes apply to this
               evidence version.
             </p>
-          </motion.div>
+          </m.div>
           <details className="review-notes">
             <summary>
               Review & notes{activeReview.reviewed ? " · reviewed" : ""}
@@ -1668,7 +1774,7 @@ export function App() {
               <Icon name="next" size={14} />
             </button>
           </nav>
-        </motion.aside>
+        </m.aside>
       )}
 
       </>
@@ -1676,7 +1782,7 @@ export function App() {
       <div className="toast-stack">
       <div className="toasts" role="status" aria-live="polite">
         {notice && (
-          <motion.p
+          <m.p
             key={notice}
             className="toast"
             initial={{ opacity: 0, y: 14, scale: 0.97 }}
@@ -1684,12 +1790,12 @@ export function App() {
           >
             <Icon name="ghost" size={15} />
             {notice}
-          </motion.p>
+          </m.p>
         )}
         {sound.error && <p className="toast">{sound.error}</p>}
       </div>
       {error && (
-        <motion.div
+        <m.div
           key={error}
           className="toast toast-error"
           role="alert"
@@ -1704,18 +1810,23 @@ export function App() {
           <button onClick={() => setError("")} className="link-btn">
             Dismiss
           </button>
-        </motion.div>
+        </m.div>
       )}
       </div>
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        groups={paletteGroups}
-        container={appRef.current}
-      />
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={paletteOpen}
+            onOpenChange={setPaletteOpen}
+            groups={paletteGroups}
+            container={appRef.current}
+          />
+        </Suspense>
+      )}
     </div>
     </IconSetContext.Provider>
     </MotionConfig>
+    </LazyMotion>
   );
 }
 

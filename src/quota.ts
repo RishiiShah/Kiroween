@@ -1,3 +1,5 @@
+import { authFor } from "./token";
+
 export type Quota = { remaining: number; limit: number; reset: number };
 const KEY = "poltergeist.quota.v1";
 const listeners = new Set<() => void>();
@@ -80,7 +82,7 @@ export function refreshQuota(force = false): Promise<Quota | null> {
   pending = (async () => {
     try {
       const response = await fetch("https://api.github.com/rate_limit", {
-        headers: { Accept: "application/vnd.github+json" },
+        headers: { Accept: "application/vnd.github+json", ...authFor("https://api.github.com/rate_limit") },
         credentials: "omit",
         referrerPolicy: "no-referrer",
         signal: AbortSignal.timeout(8000),
@@ -104,4 +106,16 @@ export function refreshQuota(force = false): Promise<Quota | null> {
     return getQuota();
   })();
   return pending;
+}
+
+/** Forget any stored quota (used when switching between anonymous and token access). */
+export function forgetQuota() {
+  state = null;
+  lastCheck = 0;
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    /* ignore */
+  }
+  listeners.forEach((listener) => listener());
 }

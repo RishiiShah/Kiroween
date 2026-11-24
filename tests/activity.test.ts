@@ -31,11 +31,12 @@ describe("activity summary", () => {
     );
   });
   it("falls back to dates in commit findings for older snapshots", () => {
-    expect(demo.commitDates).toBeUndefined();
-    const dates = commitDates(demo);
+    const old = { ...demo, commitDates: undefined };
+    const dates = commitDates(old);
     expect(dates.length).toBe(
       demo.findings.filter((f) => f.zone === "activity").length,
     );
+    expect(commitDates(demo)).toHaveLength(demo.commitDates?.length ?? 0);
     expect(Date.parse(dates[0])).toBeGreaterThanOrEqual(Date.parse(dates[dates.length - 1]));
   });
   it("counts findings per zone without losing any", () => {

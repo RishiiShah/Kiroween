@@ -1,4 +1,5 @@
 import { quotaBlocked } from "./quota";
+import { authFor } from "./token";
 
 /**
  * Browser-side cache for public GitHub API GET responses.
@@ -133,7 +134,10 @@ export async function cachedFetch(url: string, init: RequestInit = {}): Promise<
         [BLOCKED_HEADER]: "1",
       },
     });
-  const response = await fetch(url, init);
+  const auth = authFor(url);
+  const headers = new Headers(init.headers);
+  for (const [key, value] of Object.entries(auth)) headers.set(key, value);
+  const response = await fetch(url, Object.keys(auth).length ? { ...init, headers } : init);
   if (method === "GET" && response.status === 200) {
     try {
       const body = await response.clone().text();

@@ -28,7 +28,7 @@ export type Loadable<T> = {
   /** Why an automatic load was skipped (idle state only). */
   note?: string;
 };
-export type IssueList = { items: Issue[]; more: boolean; fetchedAt: string };
+export type IssueList = { items: Issue[]; more: boolean; fetchedAt: string; page: number };
 export type CommentList = { items: IssueComment[]; more: boolean };
 const idle = { status: "idle" } as const;
 const message = (error: unknown) =>
@@ -46,6 +46,7 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
   const [comments, setComments] = useState<Record<number, Loadable<CommentList>>>({});
   const [pulls, setPulls] = useState<Record<number, Loadable<PullDetails>>>({});
   const [graph, setGraph] = useState<Loadable<Graph>>(idle);
+  const [more, setMore] = useState<{ status: "idle" | "loading" | "error"; error?: string }>({ status: "idle" });
   const [insights, setInsights] = useState<Loadable<Insights>>(idle);
   const [commits, setCommits] = useState<Record<string, Loadable<CommitDetail>>>({});
   const controller = useRef<AbortController | null>(null);
@@ -61,6 +62,7 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
     setComments({});
     setPulls({});
     setGraph(idle);
+    setMore({ status: "idle" });
     setInsights(idle);
     setCommits({});
     return () => own.abort();
@@ -94,6 +96,30 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
       }),
     [run, repository, base],
   );
+  /** Appends the next page of 100 open threads (1 request). */
+  const loadMoreIssues = useCallback(async () => {
+    const signal = controller.current?.signal;
+    const current = issues.data;
+    if (!repository || !signal || !current?.more) return;
+    setMore({ status: "loading" });
+    try {
+      const next = await fetchIssues(repository, signal, current.page + 1);
+      if (signal.aborted) return;
+      const seen = new Set(current.items.map((item) => item.number));
+      setIssues({
+        status: "ready",
+        data: {
+          items: [...current.items, ...next.items.filter((item) => !seen.has(item.number))],
+          more: next.more,
+          page: next.page,
+          fetchedAt: current.fetchedAt < next.fetchedAt ? current.fetchedAt : next.fetchedAt,
+        },
+      });
+      setMore({ status: "idle" });
+    } catch (error) {
+      if (!signal.aborted) setMore({ status: "error", error: message(error) });
+    }
+  }, [repository, issues.data]);
   const loadDetails = useCallback(
     (fresh = false) =>
       run(setDetails, async (signal) => {
@@ -218,6 +244,8 @@ export function useCommunity(repository: string | undefined, autoLoad = false) {
     loadDetails,
     loadComments,
     loadPull,
+    more,
+    loadMoreIssues,
     graph,
     insights,
     commits,
