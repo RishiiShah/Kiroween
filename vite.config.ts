@@ -1,6 +1,10 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  test: {
+    setupFiles: ["./tests/setup.ts"],
+  },
   build: {
     rollupOptions: {
       onwarn(warning, warn) {

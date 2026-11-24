@@ -1,3 +1,4 @@
+import { API_CACHE_TTL, BLOCKED_HEADER, cachedFetch, isCacheHit } from "./apiCache";
 import { recordQuota } from "./quota";
 export type Zone = "activity" | "branches" | "unfinished";
 export type Finding = {
@@ -136,6 +137,9 @@ function validCommits(value: unknown): boolean {
     );
   });
 }
+/** Page sizes shared with the commit graph so both read identical (cacheable) URLs. */
+export const HISTORY_PAGE = 40;
+export const BRANCH_PAGE = 15;
 export const LIMITS = {
   files: 2000,
   branches: 4,
@@ -354,6 +358,7 @@ export async function scanRepository(
   const observedAt = new Date().toISOString();
   const warnings: string[] = [];
   let requests = 0;
+  let reused = 0;
   let rateLimitMessage = "";
   async function get(path: string): Promise<{
     data: unknown;
@@ -361,8 +366,7 @@ export async function scanRepository(
   }> {
     signal?.throwIfAborted();
     if (rateLimitMessage) throw new Error(rateLimitMessage);
-    requests++;
-    const response = await fetch(`${root}${path}`, {
+    const response = await cachedFetch(`${root}${path}`, {
       signal: AbortSignal.any([
         ...(signal ? [signal] : []),
         AbortSignal.timeout(15000),
@@ -371,6 +375,8 @@ export async function scanRepository(
       credentials: "omit",
       referrerPolicy: "no-referrer",
     });
+    if (isCacheHit(response)) reused++;
+    else if (response.headers.get(BLOCKED_HEADER) !== "1") requests++;
     recordQuota(response.headers);
     if (!response.ok) {
       if (response.status === 403 || response.status === 429) {
@@ -417,12 +423,13 @@ export async function scanRepository(
   const defaultBranch = string(metadata.default_branch);
   onProgress("Reading recent activity…");
   const history = await optional(
-    `/commits?per_page=${LIMITS.commits}`,
+    `/commits?sha=${encodeURIComponent(defaultBranch)}&per_page=${HISTORY_PAGE}`,
     "Commit history",
   );
-  const commits = history ? list(history.data) : [];
+  const loadedCommits = history ? list(history.data) : [];
+  const commits = loadedCommits.slice(0, LIMITS.commits);
   const revision = commits.length ? sha(commits[0].sha) : "";
-  if (history?.more)
+  if (history?.more || loadedCommits.length > LIMITS.commits)
     warnings.push(`Activity covers the latest ${LIMITS.commits} commits only.`);
   const findings: Finding[] = commits.slice(0, 6).map((commit) => {
     const data = object(commit.commit);
@@ -461,11 +468,12 @@ export async function scanRepository(
   for (const branch of candidates) {
     const name = string(branch.name);
     const tip = sha(object(branch.commit).sha);
-    const response = await optional(`/commits/${tip}`, `Branch ${name}`);
+    // Same URL the commit graph uses for this branch, so opening Commits reuses it.
+    const response = await optional(`/commits?sha=${tip}&per_page=${BRANCH_PAGE}`, `Branch ${name}`);
     if (!response) continue;
-    const date = isoDate(
-      object(object(object(response.data).commit).committer).date,
-    );
+    const tipCommit = list(response.data).find((item) => item.sha === tip) ?? list(response.data)[0];
+    if (!tipCommit) continue;
+    const date = isoDate(object(object(tipCommit.commit).committer).date);
     const age = Math.max(
       0,
       Math.floor((Date.parse(observedAt) - Date.parse(date)) / 86400000),
@@ -527,27 +535,44 @@ export async function scanRepository(
     )
     .slice(0, LIMITS.sourceFiles);
   let sampledFiles = 0;
+  let rawReads = 0;
+  /**
+   * File contents come from raw.githubusercontent.com pinned to the inspected revision.
+   * Raw reads do not count against the REST API's hourly quota.
+   */
+  async function readSource(path: string): Promise<string | null> {
+    signal?.throwIfAborted();
+    try {
+      const response = await cachedFetch(
+        `https://raw.githubusercontent.com/${repository}/${revision}/${encodedPath(path)}`,
+        {
+          signal: AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(15000)]),
+          credentials: "omit",
+          referrerPolicy: "no-referrer",
+        },
+      );
+      if (!isCacheHit(response)) rawReads++;
+      if (!response.ok) {
+        warnings.push(`Source ${path}: unavailable (${response.status}).`);
+        return null;
+      }
+      const text = await response.text();
+      if (new TextEncoder().encode(text).length > LIMITS.sourceBytes) {
+        warnings.push(`Source ${path}: unsupported or oversized content.`);
+        return null;
+      }
+      return text;
+    } catch (error) {
+      signal?.throwIfAborted();
+      warnings.push(`Source ${path}: ${error instanceof Error ? error.message : "unavailable"}`);
+      return null;
+    }
+  }
   for (const file of sources) {
     const path = string(file.path);
-    const response = await optional(
-      `/git/blobs/${sha(file.sha)}`,
-      `Source ${path}`,
-    );
-    if (!response) continue;
-    const blob = object(response.data);
-    if (
-      blob.encoding !== "base64" ||
-      typeof blob.size !== "number" ||
-      blob.size > LIMITS.sourceBytes
-    ) {
-      warnings.push(`Source ${path}: unsupported or oversized content.`);
-      continue;
-    }
+    const content = await readSource(path);
+    if (content === null) continue;
     try {
-      const binary = atob(string(blob.content).replace(/\s/g, ""));
-      const content = new TextDecoder().decode(
-        Uint8Array.from(binary, (c) => c.charCodeAt(0)),
-      );
       if (path === "package.json")
         findings.push(
           dependencyFinding(repository, revision, content, observedAt),
@@ -585,6 +610,14 @@ export async function scanRepository(
       ...structureFindings(repository, revision, files, complete, observedAt),
     );
   }
+  if (rawReads)
+    warnings.push(
+      `${rawReads} source ${rawReads === 1 ? "file was" : "files were"} read from raw.githubusercontent.com, which does not use the API quota.`,
+    );
+  if (reused)
+    warnings.push(
+      `${reused} of ${reused + requests} GitHub responses were reused from this browser's cache (saved within the last ${API_CACHE_TTL / 60000} minutes); use Refresh scan for live data.`,
+    );
   warnings.push(
     `TODO analysis samples ${sampledFiles} text files, at most ${LIMITS.sourceBytes / 1024} KiB each; it is not a full code or security audit.`,
   );

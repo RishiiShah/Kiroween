@@ -983,4 +983,29 @@ describe("explorer interactions", () => {
     });
     expect(container.querySelectorAll(".graph-row:not(.is-dim)")).toHaveLength(1);
   });
+
+  it("keeps a reserve for scans: loads cheap threads, pauses costlier details when quota is low", async () => {
+    const { recordQuota } = await import("../src/quota");
+    recordQuota(
+      new Headers({
+        "x-ratelimit-remaining": "12",
+        "x-ratelimit-limit": "60",
+        "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 1200),
+      }),
+    );
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        calls.push(input);
+        if (input.includes("/issues?")) return new Response("[]");
+        return new Response(JSON.stringify(demo));
+      }),
+    );
+    await mountRaw();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
+    expect(calls.filter((c) => c.includes("/issues?"))).toHaveLength(1);
+    expect(calls.some((c) => c.includes("/languages") || c.includes("/contributors"))).toBe(false);
+    expect(container.textContent).toContain("Paused automatic loading to save quota");
+  });
 });

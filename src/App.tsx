@@ -3,9 +3,10 @@ import { Issues } from "./Issues";
 import { People } from "./People";
 import { Commits } from "./Commits";
 import { branchRefs } from "./history";
+import { API_CACHE_TTL, clearApiCache, purge } from "./apiCache";
 import { Home, type HistoryEntry } from "./Home";
 import { useCommunity } from "./useCommunity";
-import { getQuota, subscribeQuota } from "./quota";
+import { getQuota, refreshQuota, subscribeQuota } from "./quota";
 import { toMarkdown } from "./markdown";
 import {
   THEMES,
@@ -95,6 +96,10 @@ export function App() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+  // The quota meter reads GitHub's free /rate_limit endpoint when the dashboard opens.
+  useEffect(() => {
+    if (route === "dashboard") void refreshQuota();
+  }, [route]);
   function navigate(next: Route) {
     const hash = next === "dashboard" ? "#/dashboard" : "#/";
     if (window.location.hash !== hash) window.location.hash = hash;
@@ -387,6 +392,16 @@ export function App() {
       );
     }
   }
+  async function rescanLive() {
+    if (!snapshot) return;
+    await purge([`https://api.github.com/repos/${snapshot.repository}`]);
+    setUrl(snapshot.repository);
+    await scanFor(snapshot.repository);
+  }
+  async function clearGitHubCache() {
+    await clearApiCache();
+    setNotice("Cached GitHub responses cleared. The next reads go to GitHub.");
+  }
   async function copyMarkdown() {
     if (!snapshot) return;
     try {
@@ -553,7 +568,8 @@ export function App() {
         { id: "act-scan", label: "Scan another repository", icon: "search", onSelect: () => document.getElementById("repo-url")?.focus() },
         ...(snapshot
           ? [
-              { id: "act-issues", label: "Refresh issues and pull requests", hint: "1 request", icon: "refresh", onSelect: () => void community.loadIssues() },
+              { id: "act-issues", label: "Refresh issues and pull requests", hint: "1 request", icon: "refresh", onSelect: () => void community.loadIssues(true) },
+              { id: "act-rescan", label: "Rescan live (skip cache)", hint: "up to 8 requests", icon: "refresh", disabled: busy, onSelect: () => void rescanLive() },
               ...(community.issues.data?.items ?? []).map((item) => ({
                 id: `thread-${item.number}`,
                 label: `#${item.number} ${item.title}`,
@@ -566,7 +582,7 @@ export function App() {
                   setView(item.kind === "pull" ? "pulls" : "issues");
                 },
               })),
-              { id: "act-details", label: "Load languages, contributors and release", hint: "3 requests", icon: "users", onSelect: () => { go("overview"); void community.loadDetails(); } },
+              { id: "act-details", label: "Refresh languages, contributors, releases", hint: "4 requests", icon: "users", onSelect: () => { go("overview"); void community.loadDetails(true); } },
               { id: "act-md", label: "Copy Markdown summary", icon: "copy", onSelect: () => void copyMarkdown() },
               { id: "act-export", label: "Export report", icon: "download", onSelect: download },
               { id: "act-compare", label: "Compare with a saved snapshot", icon: "compare", disabled: busy, onSelect: () => chooseReport("compare") },
@@ -968,13 +984,18 @@ export function App() {
                   </label>
                 )}
                 <p className="menu-heading">Data</p>
+                <button className="menu-item" onClick={() => void clearGitHubCache()}>
+                  <Icon name="refresh" size={15} />
+                  Clear cached GitHub data
+                </button>
                 <button className="menu-item danger" onClick={clearCache}>
                   <Icon name="trash" size={15} />
                   Clear saved scan
                 </button>
                 <p className="menu-note">
-                  Review notes stay in this browser. Clearing a scan keeps your
-                  notes.
+                  GitHub responses are reused for {API_CACHE_TTL / 60000} minutes to
+                  save quota. Review notes stay in this browser; clearing a scan
+                  keeps your notes.
                 </p>
               </div>
             </details>
@@ -1000,6 +1021,22 @@ export function App() {
                   <strong>{repoName}</strong>
                 </a>
                 <span className={`origin origin-${origin}`}>{originLabel}</span>
+                {snapshot.warnings.some((warning) => warning.includes("reused from this browser's cache")) && (
+                  <span className="origin origin-cache" title="Some or all GitHub responses came from the 45-minute local cache">
+                    FROM CACHE
+                  </span>
+                )}
+                {origin !== "imported" && (
+                  <button
+                    className="rescan-btn"
+                    onClick={() => void rescanLive()}
+                    disabled={busy}
+                    title="Rescan from GitHub, skipping the local cache (up to 8 requests)"
+                  >
+                    <Icon name={busy ? "loader" : "refresh"} size={13} className={busy ? "spin" : ""} />
+                    {busy ? "Scanning…" : "Rescan live"}
+                  </button>
+                )}
               </div>
               <div className="topline-meta">
                 <span>
@@ -1192,16 +1229,17 @@ export function App() {
                   insights={community.insights}
                   commits={community.commits}
                   onLoadGraph={() => void community.loadGraph(snapshot.defaultBranch, branchRefs(snapshot))}
-                  onLoadInsights={() => void community.loadInsights()}
+                  onLoadInsights={() => void community.loadInsights(true)}
                   onLoadCommit={(sha) => void community.loadCommit(sha)}
+                  onAuto={() => community.autoCommits(snapshot.defaultBranch, branchRefs(snapshot))}
                 />
               ) : view === "people" ? (
                 <People
                   snapshot={snapshot}
                   details={community.details}
                   threads={community.issues}
-                  onLoadDetails={community.loadDetails}
-                  onLoadThreads={community.loadIssues}
+                  onLoadDetails={() => void community.loadDetails(true)}
+                  onLoadThreads={() => void community.loadIssues(true)}
                   onOpenThread={(kind, number) => {
                     setThreadFocus(number);
                     setView(kind === "pull" ? "pulls" : "issues");
@@ -1214,7 +1252,7 @@ export function App() {
                   repository={snapshot.repository}
                   issues={community.issues}
                   comments={community.comments}
-                  onLoad={community.loadIssues}
+                  onLoad={() => void community.loadIssues(true)}
                   onLoadComments={community.loadComments}
                   pulls={community.pulls}
                   onLoadPull={community.loadPull}
@@ -1224,13 +1262,13 @@ export function App() {
                   onOpenPeople={() => go("people")}
                   onOpenCommits={() => go("commits")}
                   threads={community.issues}
-                  onLoadThreads={community.loadIssues}
+                  onLoadThreads={() => void community.loadIssues(true)}
                   onOpenThread={(kind, number) => {
                     setThreadFocus(number);
                     setView(kind === "pull" ? "pulls" : "issues");
                   }}
                   details={community.details}
-                  onLoadDetails={community.loadDetails}
+                  onLoadDetails={() => void community.loadDetails(true)}
                   snapshot={snapshot}
                   onOpen={selectTrace}
                   onBrowse={(next) => {
@@ -1383,7 +1421,7 @@ export function App() {
             <ol className="steps">
               <li>
                 <strong>Scan</strong>
-                <span>Up to 14 read-only API calls. No tokens, no server.</span>
+                <span>Up to 8 read-only API calls. No tokens, no server.</span>
               </li>
               <li>
                 <strong>Triage</strong>

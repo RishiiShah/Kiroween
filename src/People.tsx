@@ -54,7 +54,19 @@ function Panel({
   );
 }
 
-function Loader({ status, error, onLoad, cost }: { status: string; error?: string; onLoad: () => void; cost: string }) {
+function Loader({
+  status,
+  error,
+  note,
+  onLoad,
+  cost,
+}: {
+  status: string;
+  error?: string;
+  note?: string;
+  onLoad: () => void;
+  cost: string;
+}) {
   if (status === "loading")
     return (
       <div className="chart-pad">
@@ -63,7 +75,7 @@ function Loader({ status, error, onLoad, cost }: { status: string; error?: strin
     );
   return (
     <div className="load-inline">
-      <p>{status === "error" ? error : "Imported reports stay offline until you ask."}</p>
+      <p>{status === "error" ? error : note || "Imported reports stay offline until you ask."}</p>
       <button className="btn btn-plain" onClick={onLoad}>
         <Icon name="refresh" size={15} />
         {status === "error" ? "Try again" : "Load"} · {cost}
@@ -125,7 +137,7 @@ export function People({ snapshot, details, threads, onLoadDetails, onLoadThread
           span={7}
         >
           {threads.status !== "ready" ? (
-            <Loader status={threads.status} error={threads.error} onLoad={onLoadThreads} cost="1 request" />
+            <Loader status={threads.status} error={threads.error} note={threads.note} onLoad={onLoadThreads} cost="1 request" />
           ) : newcomers.length ? (
             <ul className="person-list">
               {newcomers.slice(0, 8).map((item) => (
@@ -155,7 +167,7 @@ export function People({ snapshot, details, threads, onLoadDetails, onLoadThread
 
         <Panel id="assoc-title" icon="pull" title="Who opens pull requests" span={5}>
           {threads.status !== "ready" ? (
-            <Loader status={threads.status} error={threads.error} onLoad={onLoadThreads} cost="1 request" />
+            <Loader status={threads.status} error={threads.error} note={threads.note} onLoad={onLoadThreads} cost="1 request" />
           ) : (
             <div className="donut-wrap">
               <Donut
@@ -185,7 +197,7 @@ export function People({ snapshot, details, threads, onLoadDetails, onLoadThread
           span={6}
         >
           {details.status !== "ready" ? (
-            <Loader status={details.status} error={details.error} onLoad={onLoadDetails} cost="4 requests" />
+            <Loader status={details.status} error={details.error} note={details.note} onLoad={onLoadDetails} cost="4 requests" />
           ) : contributors.length ? (
             <div className="chart-pad">
               <RankBars
@@ -238,7 +250,7 @@ export function People({ snapshot, details, threads, onLoadDetails, onLoadThread
 
         <Panel id="authors-title" icon="message" title="Open work by author" span={6}>
           {threads.status !== "ready" ? (
-            <Loader status={threads.status} error={threads.error} onLoad={onLoadThreads} cost="1 request" />
+            <Loader status={threads.status} error={threads.error} note={threads.note} onLoad={onLoadThreads} cost="1 request" />
           ) : authors.length ? (
             <div className="chart-pad">
               <RankBars
@@ -268,7 +280,7 @@ export function People({ snapshot, details, threads, onLoadDetails, onLoadThread
           span={6}
         >
           {threads.status !== "ready" ? (
-            <Loader status={threads.status} error={threads.error} onLoad={onLoadThreads} cost="1 request" />
+            <Loader status={threads.status} error={threads.error} note={threads.note} onLoad={onLoadThreads} cost="1 request" />
           ) : load.people.length ? (
             <div className="chart-pad">
               <RankBars

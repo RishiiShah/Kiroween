@@ -234,7 +234,8 @@ export function Overview({
               <p>
                 {threads.status === "error"
                   ? threads.error
-                  : "Imported reports stay offline. Load open issues and pull requests when you want them."}
+                  : threads.note ||
+                    "Imported reports stay offline. Load open issues and pull requests when you want them."}
               </p>
               <button className="btn btn-plain" onClick={onLoadThreads}>
                 <Icon name="refresh" size={15} />
@@ -523,7 +524,8 @@ function DetailsLoad({ details, onLoad }: { details: Loadable<Details>; onLoad: 
       <p>
         {details.status === "error"
           ? details.error
-          : "Imported reports stay offline. Load languages, contributors, releases, and 52-week activity when you want them."}
+          : details.note ||
+            "Imported reports stay offline. Load languages, contributors, releases, and 52-week activity when you want them."}
       </p>
       <button className="btn btn-plain" onClick={onLoad}>
         <Icon name="users" size={15} />

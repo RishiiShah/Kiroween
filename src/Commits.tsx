@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CodeFrequency, Donut, PunchCard } from "./charts";
 import { ago, profileUrl } from "./community";
 import {
@@ -46,15 +46,19 @@ type Props = {
   onLoadGraph: () => void;
   onLoadInsights: () => void;
   onLoadCommit: (sha: string) => void;
+  onAuto: () => void;
 };
 
-export function Commits({ snapshot, auto, graph, insights, commits, onLoadGraph, onLoadInsights, onLoadCommit }: Props) {
+export function Commits({ snapshot, auto, graph, insights, commits, onLoadGraph, onLoadInsights, onLoadCommit, onAuto }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const started = useRef(false);
   useEffect(() => {
-    if (auto && graph.status === "idle") onLoadGraph();
-    if (auto && insights.status === "idle") onLoadInsights();
-  }, [auto, graph.status, insights.status, onLoadGraph, onLoadInsights]);
+    if (started.current || !auto) return;
+    if (graph.status !== "idle" && insights.status !== "idle") return;
+    started.current = true;
+    onAuto();
+  }, [auto, graph.status, insights.status, onAuto]);
 
   const data = graph.data;
   const layout = useMemo(() => (data ? layoutGraph(data.commits) : null), [data]);
@@ -91,7 +95,9 @@ export function Commits({ snapshot, auto, graph, insights, commits, onLoadGraph,
           <p>
             {graph.status === "error"
               ? graph.error
-              : `Draws the last 40 commits on ${snapshot.defaultBranch} and up to 15 on each sampled branch as a lane graph, with merges, branch labels, authors, and per-commit file changes.`}
+              : graph.note
+                ? graph.note
+                : `Draws the last 40 commits on ${snapshot.defaultBranch} and up to 15 on each sampled branch as a lane graph, with merges, branch labels, authors, and per-commit file changes.`}
           </p>
           <div className="load-actions">
             <button className="btn btn-primary" onClick={onLoadGraph}>
@@ -318,7 +324,11 @@ function InsightBody({
   if (insights.status !== "ready" || !insights.data)
     return (
       <div className="load-inline">
-        <p>{insights.status === "error" ? insights.error : "Repository statistics load on request."}</p>
+        <p>
+          {insights.status === "error"
+            ? insights.error
+            : insights.note || "Repository statistics load on request."}
+        </p>
         <button className="btn btn-plain" onClick={onLoad}>
           <Icon name="refresh" size={15} />
           {insights.status === "error" ? "Try again" : "Load"} · 2 requests

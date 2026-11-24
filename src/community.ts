@@ -1,3 +1,4 @@
+import { cachedFetch, savedAt } from "./apiCache";
 import { recordQuota } from "./quota";
 
 export type Issue = {
@@ -123,7 +124,7 @@ export const clip = (value: unknown, max: number): string => {
 
 export async function api(repository: string, path: string, signal?: AbortSignal) {
   signal?.throwIfAborted();
-  const response = await fetch(`https://api.github.com/repos/${repository}${path}`, {
+  const response = await cachedFetch(`https://api.github.com/repos/${repository}${path}`, {
     signal: AbortSignal.any([
       ...(signal ? [signal] : []),
       AbortSignal.timeout(15000),
@@ -150,9 +151,10 @@ export async function api(repository: string, path: string, signal?: AbortSignal
     );
   }
   const more = /rel="next"/.test(response.headers.get("link") || "");
+  const cachedAt = savedAt(response);
   if (response.status === 204 || response.status === 202)
-    return { data: [] as unknown, more, status: response.status };
-  return { data: (await response.json()) as unknown, more, status: response.status };
+    return { data: [] as unknown, more, status: response.status, cachedAt };
+  return { data: (await response.json()) as unknown, more, status: response.status, cachedAt };
 }
 
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -236,12 +238,16 @@ export function parseIssues(data: unknown, repository: string): Issue[] {
 }
 
 export async function fetchIssues(repository: string, signal?: AbortSignal) {
-  const { data, more } = await api(
+  const { data, more, cachedAt } = await api(
     repository,
     `/issues?state=open&sort=updated&direction=desc&per_page=${COMMUNITY_LIMITS.issues}`,
     signal,
   );
-  return { items: parseIssues(data, repository), more, fetchedAt: new Date().toISOString() };
+  return {
+    items: parseIssues(data, repository),
+    more,
+    fetchedAt: new Date(cachedAt ?? Date.now()).toISOString(),
+  };
 }
 
 export function parseComments(data: unknown): IssueComment[] {
@@ -396,7 +402,13 @@ export async function fetchDetails(repository: string, signal?: AbortSignal): Pr
       weekly.status === "fulfilled" && !weeksPending ? parseWeeks(weekly.value.data) : null,
     weeksPending,
     warnings,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: new Date(
+      Math.min(
+        ...[languages, contributors, releases, weekly].map((result) =>
+          result.status === "fulfilled" && result.value.cachedAt ? result.value.cachedAt : Date.now(),
+        ),
+      ),
+    ).toISOString(),
   };
 }
 

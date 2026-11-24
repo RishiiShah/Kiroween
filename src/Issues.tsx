@@ -134,7 +134,8 @@ export function Issues({
           <p>
             {issues.status === "error"
               ? "Your findings are unaffected. You can retry once GitHub allows it."
-              : "Imported reports stay offline. Load the latest open issues and pull requests from GitHub with one request."}
+              : issues.note ||
+                "Imported reports stay offline. Load the latest open issues and pull requests from GitHub with one request."}
           </p>
           <div className="load-actions">
             <button className="btn btn-primary" onClick={onLoad}>

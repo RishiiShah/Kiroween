@@ -1,4 +1,5 @@
 import { motion } from "motion/react";
+import { API_CACHE_TTL } from "./apiCache";
 import { Icon, Kbd, Logo, isMac, t } from "./ui";
 
 export type HistoryEntry = {
@@ -175,7 +176,10 @@ export function Home(props: Props) {
                       {entry.findings} traces · {entry.review} needed review
                     </span>
                     <span className="recent-go">
-                      Scan again · up to 14 requests <Icon name="next" size={14} />
+                      {Date.now() - Date.parse(entry.observedAt) < API_CACHE_TTL
+                        ? "Open again · cached, no requests"
+                        : "Scan again · up to 8 requests"}{" "}
+                      <Icon name="next" size={14} />
                     </span>
                   </button>
                 ))}
@@ -217,7 +221,7 @@ export function Home(props: Props) {
               </h3>
               <ul>
                 <li>Public GitHub data only, with no token or account.</li>
-                <li>A bounded scan: at most 14 API calls, 20 commits, 6 source files.</li>
+                <li>A bounded scan: at most 8 API calls, plus 6 source files from raw.githubusercontent.com.</li>
                 <li>Open threads (1 call) and repository details (4 calls) after the scan.</li>
                 <li>Your notes and the last scan stay in this browser.</li>
               </ul>

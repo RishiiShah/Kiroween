@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import fc from "fast-check";
 import {
+  BRANCH_PAGE,
+  HISTORY_PAGE,
   dependencyFinding,
   isSnapshot,
   LIMITS,
@@ -23,15 +25,17 @@ function mockGitHub(overrides: Record<string, unknown> = {}) {
       description: "<script>never executed</script>",
       stargazers_count: 7,
     },
-    [`/commits?per_page=${LIMITS.commits}`]: [commit],
+    [`/commits?sha=main&per_page=${HISTORY_PAGE}`]: [commit],
     [`/branches?per_page=${LIMITS.branches + 1}`]: [
       { name: "main", commit: { sha: revision } },
       { name: "forgotten", commit: { sha: revision } },
     ],
-    [`/commits/${revision}`]: {
-      ...commit,
-      commit: { ...commit.commit, committer: { date: "2020-01-01T00:00:00Z" } },
-    },
+    [`/commits?sha=${revision}&per_page=${BRANCH_PAGE}`]: [
+      {
+        ...commit,
+        commit: { ...commit.commit, committer: { date: "2020-01-01T00:00:00Z" } },
+      },
+    ],
     [`/git/trees/${revision}?recursive=1`]: {
       truncated: false,
       tree: [
@@ -58,14 +62,14 @@ function mockGitHub(overrides: Record<string, unknown> = {}) {
         },
       ],
     },
-    [`/git/blobs/${revision}`]: {
-      encoding: "base64",
-      size: 20,
-      content: btoa("// TODO: finish this\n"),
-    },
+    raw: "// TODO: finish this\n",
     ...overrides,
   };
   const fetcher = vi.fn(async (input: string) => {
+    if (input.startsWith("https://raw.githubusercontent.com/owner/manor/")) {
+      const raw = data[`raw:${input.split(`/${revision}/`)[1]}`] ?? data.raw;
+      return raw instanceof Response ? raw : new Response(String(raw), { status: 200 });
+    }
     const path = input.replace("https://api.github.com/repos/owner/manor", "");
     const result = data[path];
     return result instanceof Response
@@ -206,9 +210,10 @@ describe("bounded public scan", () => {
     });
     const result = await scanRepository("https://github.com/owner/manor");
     expect(result.files).toHaveLength(LIMITS.files);
-    expect(
-      fetcher.mock.calls.filter(([path]) => path.includes("/git/blobs/")),
-    ).toHaveLength(LIMITS.sourceFiles);
+    const raw = fetcher.mock.calls.filter(([path]) => path.includes("raw.githubusercontent.com"));
+    expect(raw).toHaveLength(LIMITS.sourceFiles);
+    for (const [url] of raw) expect(url).toContain(`/owner/manor/${revision}/`);
+    expect(result.warnings.join(" ")).toContain("does not use the API quota");
     expect(result.sampledFiles).toBe(LIMITS.sourceFiles - 1);
     expect(result.warnings.join(" ")).toContain(
       "Source package.json: malformed",
@@ -231,9 +236,10 @@ describe("bounded public scan", () => {
     );
     expect(result.findings.some((f) => f.id === "tests:none-found")).toBe(true);
     expect(result.files).not.toContain("external.ts");
-    expect(result.requests).toBe(fetcher.mock.calls.length);
+    const api = fetcher.mock.calls.filter(([path]) => path.startsWith("https://api.github.com/"));
+    expect(result.requests).toBe(api.length);
     expect(result.requests).toBeLessThanOrEqual(
-      4 + LIMITS.branches + LIMITS.sourceFiles,
+      4 + LIMITS.branches,
     );
     expect(isSnapshot(result)).toBe(true);
     expect(result.warnings.join(" ")).toContain(

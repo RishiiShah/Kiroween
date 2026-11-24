@@ -1,9 +1,9 @@
 import { api, clip } from "./community";
-import { encodedPath, type Snapshot } from "./scan";
+import { BRANCH_PAGE, HISTORY_PAGE, encodedPath, type Snapshot } from "./scan";
 
 const SHA = /^[a-f0-9]{40,64}$/;
 const LOGIN = /^[A-Za-z0-9][A-Za-z0-9-]{0,38}(\[bot\])?$/;
-export const GRAPH_LIMITS = { main: 40, branch: 15, branches: 4, files: 60 };
+export const GRAPH_LIMITS = { main: HISTORY_PAGE, branch: BRANCH_PAGE, branches: 4, files: 60 };
 
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -108,7 +108,13 @@ export async function fetchGraph(
     commits,
     branches: [defaultBranch, ...branches.map((branch) => branch.name)],
     truncated,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: new Date(
+      Math.min(
+        ...results.map((result) =>
+          result.status === "fulfilled" && result.value.cachedAt ? result.value.cachedAt : Date.now(),
+        ),
+      ),
+    ).toISOString(),
   };
 }
 
