@@ -30,7 +30,7 @@ import {
   type Zone,
 } from "./scan";
 import "./style.css";
-import { Icon, IconSetContext, Kbd, isMac } from "./ui";
+import { EASE_OUT, Icon, IconSetContext, Kbd, Logo, isMac, t } from "./ui";
 import { MotionConfig, motion } from "motion/react";
 import { CommandPalette, type PaletteGroup } from "./CommandPalette";
 import { useSoundscape } from "./useSoundscape";
@@ -600,12 +600,15 @@ export function App() {
         layoutId="nav-active"
         className="nav-active"
         aria-hidden="true"
-        transition={{ type: "spring", stiffness: 520, damping: 40 }}
+        transition={{ type: "spring", stiffness: 260, damping: 34 }}
       />
     ) : null;
 
   return (
-    <MotionConfig reducedMotion={motionPaused ? "always" : "user"}>
+    <MotionConfig
+      reducedMotion={motionPaused ? "always" : "user"}
+      transition={{ duration: t(0.4), ease: EASE_OUT }}
+    >
     <IconSetContext.Provider value={iconSetFor(resolvedTheme)}>
     <div
       ref={appRef}
@@ -661,7 +664,7 @@ export function App() {
       <aside className="sidebar" aria-label="Workspace">
         <a className="brand" href="#/" aria-label="Poltergeist Commits home">
           <span className="brand-glyph">
-            <Icon name="ghost" size={17} />
+            <Logo size={20} />
           </span>
           <span className="brand-name">Poltergeist</span>
           <span className="brand-sub">commits</span>
@@ -701,7 +704,7 @@ export function App() {
             />
             <button className="scan-go" disabled={busy} title="Investigate">
               <Icon
-                name={busy ? "loader" : "next"}
+                name={busy ? "loader" : "go"}
                 size={16}
                 className={busy ? "spin" : ""}
               />
@@ -1179,7 +1182,7 @@ export function App() {
               key={`${view}-${zone}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: t(0.24), ease: [0.16, 1, 0.3, 1] }}
             >
               {view === "commits" ? (
                 <Commits
@@ -1268,12 +1271,12 @@ export function App() {
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{
-                                delay: Math.min(index, 10) * 0.035,
-                                duration: 0.28,
+                                delay: t(Math.min(index, 10) * 0.035),
+                                duration: t(0.28),
                                 ease: [0.16, 1, 0.3, 1],
                               }}
-                              whileHover={{ y: -2 }}
-                              whileTap={{ scale: 0.985 }}
+                              whileHover={{ y: -3, transition: { duration: t(0.22), delay: 0, ease: EASE_OUT } }}
+                              whileTap={{ scale: 0.985, transition: { duration: t(0.12), delay: 0 } }}
                               className={`trace ${finding.severity} ${selected === finding.id ? "selected" : ""}`}
                               onClick={() => selectTrace(finding.id)}
                               aria-pressed={selected === finding.id}
@@ -1490,7 +1493,7 @@ export function App() {
           ref={evidence}
           initial={{ opacity: 0, x: 28 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ type: "spring", stiffness: 420, damping: 38 }}
+          transition={{ type: "spring", stiffness: 210, damping: 32 }}
           className="inspector"
           aria-labelledby="evidence-title"
           tabIndex={-1}
@@ -1514,7 +1517,7 @@ export function App() {
             className="evidence-detail"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: t(0.2)}}
           >
             <div className="trace-tags">
               <span className={`tag tag-${active.severity}`}>

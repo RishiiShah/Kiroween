@@ -14,7 +14,7 @@ import {
 } from "./history";
 import { Avatar } from "./People";
 import type { Snapshot } from "./scan";
-import { Icon, NumberTicker, Skeleton } from "./ui";
+import { Icon, NumberTicker, Skeleton, t } from "./ui";
 import type { Loadable } from "./useCommunity";
 
 const ROW = 44;
@@ -178,7 +178,7 @@ export function Commits({ snapshot, auto, graph, insights, commits, onLoadGraph,
                     className={`graph-row ${selected === row.commit.sha ? "is-selected" : ""} ${matches(row) ? "" : "is-dim"}`}
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: Math.min(index, 25) * 0.015, duration: 0.25 }}
+                    transition={{ delay: t(Math.min(index, 25) * 0.015), duration: t(0.25)}}
                   >
                     <button
                       className="graph-hit"
@@ -387,7 +387,7 @@ function GraphCell({
         className={`node lane-${row.lane % 6} ${merge ? "is-merge" : ""} ${row.commit.refs.length ? "is-ref" : ""}`}
         initial={{ r: 0 }}
         animate={{ r: merge ? 5.5 : row.commit.refs.length ? 6 : 4.5 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: t(0.3)}}
       />
     </svg>
   );
@@ -427,7 +427,7 @@ function CommitPanel({
       aria-labelledby="commit-title"
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22 }}
+      transition={{ duration: t(0.22)}}
     >
       <p className="eyebrow">
         Commit <code>{commit.sha.slice(0, 10)}</code>
@@ -500,7 +500,7 @@ function CommitPanel({
                   key={file.path}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: Math.min(index, 20) * 0.015 }}
+                  transition={{ delay: t(Math.min(index, 20) * 0.015)}}
                 >
                   <span className={`file-status st-${file.status}`} title={file.status}>
                     <Icon

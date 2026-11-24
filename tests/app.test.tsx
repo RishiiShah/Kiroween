@@ -779,14 +779,14 @@ describe("explorer interactions", () => {
       [...container.querySelectorAll<HTMLButtonElement>(".nav-item")].find(
         (b) => b.textContent?.trim() === "Overview",
       )!;
-    expect(overview().querySelector("svg.lucide-castle")).toBeTruthy();
+    expect(overview().querySelector('svg[data-glyph="castle-turret"][data-weight="duotone"]')).toBeTruthy();
     await expand("Settings");
     await click("Light");
-    expect(overview().querySelector("svg.lucide-layout-dashboard")).toBeTruthy();
+    expect(overview().querySelector('svg[data-glyph="squares-four"]')).toBeTruthy();
     await click("Midnight");
-    expect(overview().querySelector("svg.lucide-telescope")).toBeTruthy();
+    expect(overview().querySelector('svg[data-glyph="planet"][data-weight="light"]')).toBeTruthy();
     await click("High contrast");
-    expect(overview().querySelector("svg")?.getAttribute("stroke-width")).toBe("2.25");
+    expect(overview().querySelector("svg")?.getAttribute("data-weight")).toBe("bold");
     expect(overview().textContent?.trim()).toBe("Overview");
   });
 

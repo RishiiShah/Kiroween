@@ -12,7 +12,7 @@ import {
 } from "./community";
 import { Avatar } from "./People";
 import type { CommentList, IssueList, Loadable } from "./useCommunity";
-import { Icon, Skeleton } from "./ui";
+import { Icon, Skeleton, t } from "./ui";
 import { AgeHistogram } from "./charts";
 import { threadAgeBuckets } from "./activity";
 
@@ -217,7 +217,7 @@ export function Issues({
                 layout="position"
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(index, 12) * 0.018, duration: 0.22 }}
+                transition={{ delay: t(Math.min(index, 12) * 0.018), duration: t(0.22)}}
                 key={item.number}
                 className={`issue ${open === item.number ? "is-open" : ""}`}
               >
@@ -305,7 +305,7 @@ function IssueDetail({
       key={item.number}
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: t(0.22), ease: [0.16, 1, 0.3, 1] }}
       className="issue-detail"
       aria-labelledby="issue-detail-title"
     >
@@ -393,7 +393,7 @@ function IssueDetail({
               key={comment.id}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.04, duration: 0.2 }}
+              transition={{ delay: t(index * 0.04), duration: t(0.2)}}
             >
               <p className="comment-meta">
                 <strong>{comment.author}</strong> · {ago(comment.createdAt, now)}
@@ -455,13 +455,13 @@ function PullReview({ pull, onLoad }: { pull?: Loadable<PullDetails>; onLoad: ()
             className="add"
             initial={{ width: 0 }}
             animate={{ width: `${(data.additions / total) * 100}%` }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: t(0.5)}}
           />
           <motion.i
             className="del"
             initial={{ width: 0 }}
             animate={{ width: `${(data.deletions / total) * 100}%` }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            transition={{ duration: t(0.5), delay: t(0.1)}}
           />
         </span>
         <span className="muted">

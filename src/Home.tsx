@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Icon, Kbd, isMac } from "./ui";
+import { Icon, Kbd, Logo, isMac, t } from "./ui";
 
 export type HistoryEntry = {
   repository: string;
@@ -60,7 +60,7 @@ const FEATURES = [
 const fade = (delay: number) => ({
   initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
+  transition: { delay, duration: t(0.5), ease: [0.16, 1, 0.3, 1] as const },
 });
 
 export function Home(props: Props) {
@@ -70,7 +70,7 @@ export function Home(props: Props) {
       <header className="home-bar">
         <a className="brand" href="#/" aria-label="Poltergeist Commits home">
           <span className="brand-glyph">
-            <Icon name="ghost" size={17} />
+            <Logo size={20} />
           </span>
           <span className="brand-name">Poltergeist</span>
           <span className="brand-sub">commits</span>
@@ -121,7 +121,7 @@ export function Home(props: Props) {
               autoComplete="off"
             />
             <button className="btn btn-primary btn-lg" disabled={busy}>
-              <Icon name={busy ? "loader" : "next"} size={16} className={busy ? "spin" : ""} />
+              <Icon name={busy ? "loader" : "go"} size={16} className={busy ? "spin" : ""} />
               {busy ? "Investigating…" : "Investigate"}
             </button>
           </motion.form>
@@ -194,7 +194,7 @@ export function Home(props: Props) {
                 className="feature"
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + index * 0.05, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ delay: t(0.3 + index * 0.05), duration: t(0.45), ease: [0.16, 1, 0.3, 1] }}
               >
                 <span className="feature-icon" aria-hidden="true">
                   <Icon name={feature.icon} size={18} />
@@ -251,12 +251,12 @@ function HeroArt() {
   const draw = (delay: number) => ({
     initial: { pathLength: 0, opacity: 0 },
     animate: { pathLength: 1, opacity: 1 },
-    transition: { delay, duration: 1.1, ease: [0.65, 0, 0.35, 1] as const },
+    transition: { delay, duration: t(1.1), ease: [0.65, 0, 0.35, 1] as const },
   });
   const pop = (delay: number) => ({
     initial: { scale: 0, opacity: 0 },
     animate: { scale: 1, opacity: 1 },
-    transition: { delay, type: "spring" as const, stiffness: 420, damping: 22 },
+    transition: { delay, type: "spring" as const, stiffness: 210, damping: 26 },
   });
   const main = [60, 120, 180, 240, 300, 360];
   return (
@@ -297,7 +297,7 @@ function HeroArt() {
           className="art-ghost"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: [0, 1, 1], y: [10, 0, -6, 0] }}
-          transition={{ delay: 2.4, duration: 3, ease: "easeInOut" }}
+          transition={{ delay: t(2.4), duration: t(3), ease: "easeInOut" }}
         >
           <path d="M284 236 v-30 a26 26 0 0 1 52 0 v30 l-9 -7 -9 7 -8 -7 -8 7 -9 -7 z" />
           <circle cx={300} cy={208} r={3.5} className="art-eye" />

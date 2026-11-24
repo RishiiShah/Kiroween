@@ -11,10 +11,10 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (/[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
+          if (/[\\/]@phosphor-icons[\\/]/.test(id)) return "icons";
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return "react";
           if (/[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) return "motion";
           if (/[\\/](cmdk|@radix-ui)[\\/]/.test(id)) return "palette";
-          if (/[\\/]lucide-react[\\/]/.test(id)) return "icons";
         },
       },
     },

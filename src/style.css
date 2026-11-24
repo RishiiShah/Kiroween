@@ -886,7 +886,7 @@ select {
   background: var(--surface);
   box-shadow: var(--shadow);
   text-align: left;
-  transition: box-shadow 120ms ease, transform 120ms ease;
+  transition: box-shadow 180ms ease, transform 180ms ease;
 }
 .trace:hover {
   box-shadow: 0 0 0 1px var(--border-strong), 0 4px 12px #1c1b1812;
@@ -2104,7 +2104,7 @@ textarea:focus {
   z-index: 200;
   background: color-mix(in srgb, var(--canvas) 55%, #000 45%);
   backdrop-filter: blur(4px);
-  animation: overlay-in 160ms ease-out;
+  animation: overlay-in 240ms ease-out;
 }
 .palette {
   position: fixed;
@@ -2121,7 +2121,7 @@ textarea:focus {
   background: var(--surface);
   box-shadow: var(--shadow-pop);
   color: var(--ink);
-  animation: palette-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: palette-in 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes overlay-in {
   from {
@@ -2239,7 +2239,7 @@ textarea:focus {
   border-top: 2px solid var(--zone);
 }
 .trace {
-  transition: box-shadow 150ms ease;
+  transition: box-shadow 225ms ease;
 }
 .trace-foot {
   display: flex;
@@ -2250,7 +2250,7 @@ textarea:focus {
   color: var(--ink-3);
   opacity: 0;
   transform: translateX(-4px);
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition: opacity 225ms ease, transform 225ms ease;
 }
 .trace:hover .trace-go,
 .trace.selected .trace-go {
@@ -2372,7 +2372,7 @@ textarea:focus {
 /* Theme switches cross-fade through the View Transitions API when available. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 320ms;
+  animation-duration: 480ms;
   animation-timing-function: var(--ease-out);
 }
 /* Colors glide instead of snapping when state or theme changes. */
@@ -2402,11 +2402,11 @@ tbody tr,
 .thread-list button,
 .issue-hit {
   transition:
-    background-color 220ms ease,
-    color 220ms ease,
-    border-color 220ms ease,
-    box-shadow 200ms ease,
-    transform 160ms var(--ease-out);
+    background-color 330ms ease,
+    color 330ms ease,
+    border-color 330ms ease,
+    box-shadow 300ms ease,
+    transform 240ms var(--ease-out);
 }
 .btn:active:not(:disabled),
 .menu > summary:active,
@@ -2419,7 +2419,7 @@ tbody tr,
   box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .source-button {
-  transition: transform 160ms var(--ease-out), box-shadow 200ms ease, filter 200ms ease;
+  transition: transform 240ms var(--ease-out), box-shadow 300ms ease, filter 300ms ease;
 }
 .source-button:hover {
   transform: translateY(-1px);
@@ -2427,14 +2427,14 @@ tbody tr,
 }
 .source-button .icon,
 .issue-actions a .icon {
-  transition: transform 180ms var(--ease-out);
+  transition: transform 270ms var(--ease-out);
 }
 .source-button:hover .icon,
 .issue-actions a:hover .icon {
   transform: translate(2px, -2px);
 }
 .nav-item .icon {
-  transition: transform 200ms var(--ease-out), color 200ms ease;
+  transition: transform 300ms var(--ease-out), color 300ms ease;
 }
 .nav-item:hover .icon {
   transform: translateX(1px) scale(1.06);
@@ -2447,7 +2447,7 @@ tbody tr,
 }
 /* Menus pop open from their anchor. */
 .menu[open] > .menu-panel {
-  animation: pop-in 170ms var(--ease-out);
+  animation: pop-in 255ms var(--ease-out);
   transform-origin: top right;
 }
 .menu-up[open] > .menu-panel {
@@ -2469,7 +2469,7 @@ tbody tr,
   }
 }
 .review-notes[open] > :not(summary) {
-  animation: fade-up 200ms var(--ease-out);
+  animation: fade-up 300ms var(--ease-out);
 }
 @keyframes fade-up {
   from {
@@ -2478,10 +2478,10 @@ tbody tr,
   }
 }
 .quota-track span {
-  transition: width 500ms var(--ease-out), background-color 300ms ease;
+  transition: width 750ms var(--ease-out), background-color 450ms ease;
 }
 .spark-bar {
-  transition: filter 160ms ease;
+  transition: filter 240ms ease;
 }
 .spark-bar:hover {
   filter: brightness(1.15);
@@ -2590,7 +2590,7 @@ tbody tr,
   border: 1px solid var(--border);
   border-radius: 7px;
   background: var(--sunken);
-  transition: border-color 200ms ease, box-shadow 200ms ease;
+  transition: border-color 300ms ease, box-shadow 300ms ease;
 }
 .scan-field:focus-within {
   border-color: var(--accent);
@@ -2616,7 +2616,7 @@ tbody tr,
   border-radius: 5px;
   background: var(--accent);
   color: var(--accent-ink);
-  transition: transform 160ms var(--ease-out), filter 200ms ease;
+  transition: transform 240ms var(--ease-out), filter 300ms ease;
 }
 .scan-go:hover:not(:disabled) {
   filter: brightness(1.1);
@@ -2650,7 +2650,7 @@ tbody tr,
 .att-go {
   color: var(--ink-3);
   opacity: 0;
-  transition: opacity 150ms ease, transform 150ms var(--ease-out);
+  transition: opacity 225ms ease, transform 225ms var(--ease-out);
   transform: translateX(-3px);
 }
 .attention-list button:hover .att-go {
@@ -2709,7 +2709,7 @@ tbody tr,
 .bar-row .bar {
   fill: var(--z-branches);
   opacity: 0.55;
-  transition: opacity 160ms ease;
+  transition: opacity 240ms ease;
 }
 .bar-row.is-quiet .bar {
   fill: var(--warn);
@@ -2722,7 +2722,7 @@ tbody tr,
   fill: var(--ink);
 }
 .hist {
-  transition: opacity 160ms ease;
+  transition: opacity 240ms ease;
 }
 .hist.kind-pull {
   fill: var(--accent);
@@ -2779,7 +2779,7 @@ tbody tr,
   fill: var(--surface);
   stroke: var(--accent);
   stroke-width: 1.75;
-  transition: r 150ms ease;
+  transition: r 225ms ease;
 }
 .timeline-dot:hover {
   fill: var(--accent);
@@ -2799,7 +2799,7 @@ tbody tr,
   fill: var(--zone);
   stroke: var(--surface);
   stroke-width: 1;
-  transition: opacity 160ms ease;
+  transition: opacity 240ms ease;
 }
 .donut-slice:hover {
   opacity: 0.8;
@@ -2926,7 +2926,7 @@ tbody tr,
   background: var(--surface);
   box-shadow: var(--shadow-pop);
   color: var(--ink-3);
-  transition: box-shadow 200ms ease;
+  transition: box-shadow 300ms ease;
 }
 .hero-scan:focus-within {
   box-shadow: 0 0 0 2px var(--accent), var(--shadow-pop);
@@ -2971,7 +2971,7 @@ tbody tr,
   background: var(--surface);
   box-shadow: var(--shadow);
   text-align: left;
-  transition: transform 180ms var(--ease-out), box-shadow 200ms ease;
+  transition: transform 270ms var(--ease-out), box-shadow 300ms ease;
 }
 .recent-card:hover {
   transform: translateY(-2px);
@@ -3307,7 +3307,7 @@ tbody tr,
   stroke: var(--border-strong);
 }
 .heat {
-  transition: stroke 120ms ease;
+  transition: stroke 180ms ease;
   stroke: transparent;
 }
 .heat:hover {
@@ -3362,7 +3362,7 @@ tbody tr,
   fill: var(--accent);
   stroke: var(--surface);
   stroke-width: 2;
-  transition: r 150ms ease;
+  transition: r 225ms ease;
 }
 .release:hover .release-dot {
   r: 7;
@@ -3589,7 +3589,7 @@ tbody tr,
   overscroll-behavior: contain;
 }
 .graph-row {
-  transition: opacity 200ms ease;
+  transition: opacity 300ms ease;
 }
 .graph-row.is-dim {
   opacity: 0.28;
@@ -4107,4 +4107,53 @@ tbody tr,
   .home-links .hide-sm {
     display: none;
   }
+}
+
+/* ============ Custom logo & icon finish ============ */
+.logo-body {
+  fill: currentColor;
+}
+.logo-eye {
+  fill: var(--accent);
+}
+.logo-branch {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.brand-glyph {
+  color: var(--accent-ink);
+  box-shadow: inset 0 1px 0 #ffffff40, 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.brand:hover .logo {
+  animation: logo-float 2.4s var(--ease-out) infinite alternate;
+}
+@keyframes logo-float {
+  to {
+    transform: translateY(-1.5px);
+  }
+}
+.light-mark .brand-glyph,
+.theme-light .brand-glyph {
+  background: var(--ink);
+  color: var(--canvas);
+}
+.theme-light .logo-eye,
+.theme-light .logo-branch {
+  fill: var(--ink);
+  stroke: var(--ink);
+}
+.theme-light .logo-branch {
+  fill: none;
+}
+/* Duotone icons: Phosphor paints the second layer at 20% of currentColor. */
+.icon {
+  flex-shrink: 0;
+}
+.nav-item[aria-current="page"] .icon,
+.feature-icon .icon,
+.lane-icon .icon,
+.group-icon .icon {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, currentColor 25%, transparent));
 }

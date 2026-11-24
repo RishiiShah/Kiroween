@@ -1,162 +1,170 @@
 import { animate, useReducedMotion } from "motion/react";
 import { useEffect, useState } from "react";
 import {
-  Activity,
-  Clock3,
-  FileDiff,
-  FileMinus,
-  FilePen,
-  FilePlus,
-  GitGraph,
-  GitMerge,
-  ShieldCheck,
-  Tag,
-  Spline,
+  ArrowRight,
   ArrowUpRight,
-  Binoculars,
+  ArrowsClockwise,
   BookOpen,
-  Castle,
+  Binoculars,
+  Broadcast,
+  CaretLeft,
+  CaretRight,
+  CastleTurret,
+  ChatCircleDots,
   Check,
-  ChevronLeft,
-  ChevronRight,
-  CircleDot,
+  CircleDashed,
+  CircleNotch,
+  Clock,
   Command,
   Copy,
   Crosshair,
   DoorOpen,
-  Download,
+  DownloadSimple,
   Eye,
+  FileMinus,
+  FilePlus,
   FileText,
   Flashlight,
   Footprints,
-  GitBranch,
-  GitCompareArrows,
-  GitPullRequest,
-  GitPullRequestDraft,
+  GearSix,
   Ghost,
-  HeartPulse,
-  LayoutDashboard,
-  ListTodo,
-  LoaderCircle,
-  MessageSquare,
-  MoonStar,
-  Orbit,
+  GitBranch,
+  GitDiff,
+  GitFork,
+  GitMerge,
+  GitPullRequest,
+  Heartbeat,
+  Kanban,
+  Lightning,
+  ListChecks,
+  MagicWand,
+  MagnifyingGlass,
+  MoonStars,
   Palette,
+  PencilSimple,
+  Planet,
   Printer,
-  Radar,
-  RefreshCw,
+  Pulse,
   Rocket,
-  Satellite,
-  ScrollText,
-  Search,
-  Settings2,
+  Scroll,
+  SealCheck,
   Skull,
-  Sparkles,
-  SquareKanban,
+  Sparkle,
+  SpeakerHigh,
+  SpeakerSlash,
+  SquaresFour,
   Star,
-  Table2,
-  Telescope,
-  Tombstone,
-  Trash2,
-  TriangleAlert,
-  Upload,
-  Users,
-  Volume2,
-  VolumeX,
-  WandSparkles,
+  Table,
+  Tag,
+  Target,
+  Trash,
+  UploadSimple,
+  UsersThree,
+  WarningCircle,
   Wind,
   X,
-  type LucideIcon,
-} from "lucide-react";
+  type Icon as PhosphorIcon,
+  type IconWeight,
+} from "@phosphor-icons/react";
 import { createContext, useContext } from "react";
 
+/**
+ * Global motion pace. Every duration and stagger runs through t() so the whole UI can be
+ * tuned in one place. Springs use soft stiffness with critical-ish damping: no bounce.
+ */
+export const PACE = 1.6;
+export const t = (seconds: number) => Math.round(seconds * PACE * 1000) / 1000;
+export const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+
+type Glyph = { id: string; icon: PhosphorIcon };
+const g = (id: string, icon: PhosphorIcon): Glyph => ({ id, icon });
+
 /** Semantic icon names. Each theme may draw a name differently; the meaning never changes. */
-const ICONS: Record<string, LucideIcon> = {
-  activity: Activity,
-  clock: Clock3,
-  diff: FileDiff,
-  "file-add": FilePlus,
-  "file-del": FileMinus,
-  "file-edit": FilePen,
-  graph: GitGraph,
-  merge: GitMerge,
-  shield: ShieldCheck,
-  tag: Tag,
-  alert: TriangleAlert,
-  board: SquareKanban,
-  branch: GitBranch,
-  check: Check,
-  close: X,
-  command: Command,
-  compare: GitCompareArrows,
-  copy: Copy,
-  demo: Sparkles,
-  download: Download,
-  draft: GitPullRequestDraft,
-  gear: Settings2,
-  ghost: Ghost,
-  home: LayoutDashboard,
-  issue: CircleDot,
-  link: ArrowUpRight,
-  loader: LoaderCircle,
-  message: MessageSquare,
-  moon: MoonStar,
-  motion: Wind,
-  mute: VolumeX,
-  next: ChevronRight,
-  palette: Palette,
-  prev: ChevronLeft,
-  print: Printer,
-  pull: GitPullRequest,
-  pulse: HeartPulse,
-  refresh: RefreshCw,
-  report: FileText,
-  search: Search,
-  skull: ListTodo,
-  sound: Volume2,
-  sparkles: Sparkles,
-  star: Star,
-  table: Table2,
-  trash: Trash2,
-  upload: Upload,
-  users: Users,
+const ICONS: Record<string, Glyph> = {
+  activity: g("pulse", Pulse),
+  alert: g("warning", WarningCircle),
+  board: g("kanban", Kanban),
+  branch: g("git-branch", GitBranch),
+  check: g("check", Check),
+  clock: g("clock", Clock),
+  close: g("x", X),
+  command: g("command", Command),
+  compare: g("git-diff", GitDiff),
+  copy: g("copy", Copy),
+  demo: g("sparkle", Sparkle),
+  diff: g("git-diff", GitDiff),
+  download: g("download", DownloadSimple),
+  draft: g("circle-dashed", CircleDashed),
+  "file-add": g("file-plus", FilePlus),
+  "file-del": g("file-minus", FileMinus),
+  "file-edit": g("pencil", PencilSimple),
+  gear: g("gear", GearSix),
+  go: g("arrow-right", ArrowRight),
+  ghost: g("ghost", Ghost),
+  graph: g("git-fork", GitFork),
+  home: g("squares-four", SquaresFour),
+  issue: g("target", Target),
+  link: g("arrow-up-right", ArrowUpRight),
+  loader: g("circle-notch", CircleNotch),
+  merge: g("git-merge", GitMerge),
+  message: g("chat", ChatCircleDots),
+  moon: g("moon-stars", MoonStars),
+  motion: g("wind", Wind),
+  mute: g("speaker-slash", SpeakerSlash),
+  next: g("caret-right", CaretRight),
+  palette: g("palette", Palette),
+  prev: g("caret-left", CaretLeft),
+  print: g("printer", Printer),
+  pull: g("git-pull-request", GitPullRequest),
+  pulse: g("heartbeat", Heartbeat),
+  refresh: g("arrows-clockwise", ArrowsClockwise),
+  report: g("file-text", FileText),
+  search: g("magnifying-glass", MagnifyingGlass),
+  shield: g("seal-check", SealCheck),
+  skull: g("list-checks", ListChecks),
+  sound: g("speaker-high", SpeakerHigh),
+  sparkles: g("sparkle", Sparkle),
+  star: g("star", Star),
+  table: g("table", Table),
+  tag: g("tag", Tag),
+  trash: g("trash", Trash),
+  upload: g("upload", UploadSimple),
+  users: g("users-three", UsersThree),
 };
 export type IconSet = "standard" | "halloween" | "midnight" | "contrast";
-const OVERRIDES: Record<IconSet, Record<string, LucideIcon>> = {
+const OVERRIDES: Record<IconSet, Record<string, Glyph>> = {
   standard: {},
   contrast: {},
   halloween: {
-    home: Castle,
-    pulse: Footprints,
-    branch: DoorOpen,
-    skull: Skull,
-    alert: Eye,
-    board: Tombstone,
-    issue: ScrollText,
-    table: BookOpen,
-    demo: WandSparkles,
-    sparkles: WandSparkles,
-    search: Flashlight,
-    palette: MoonStar,
+    home: g("castle-turret", CastleTurret),
+    pulse: g("footprints", Footprints),
+    branch: g("door-open", DoorOpen),
+    skull: g("skull", Skull),
+    alert: g("eye", Eye),
+    issue: g("scroll", Scroll),
+    table: g("book-open", BookOpen),
+    demo: g("magic-wand", MagicWand),
+    sparkles: g("magic-wand", MagicWand),
+    search: g("flashlight", Flashlight),
+    palette: g("moon-stars", MoonStars),
   },
   midnight: {
-    graph: Spline,
-    home: Telescope,
-    pulse: Orbit,
-    branch: Satellite,
-    skull: Radar,
-    alert: Crosshair,
-    demo: Rocket,
-    sparkles: Rocket,
-    search: Binoculars,
-    palette: MoonStar,
+    home: g("planet", Planet),
+    pulse: g("broadcast", Broadcast),
+    branch: g("git-fork", GitFork),
+    skull: g("crosshair", Crosshair),
+    alert: g("lightning", Lightning),
+    demo: g("rocket", Rocket),
+    sparkles: g("rocket", Rocket),
+    search: g("binoculars", Binoculars),
+    palette: g("moon-stars", MoonStars),
   },
 };
-const STROKE: Record<IconSet, number> = {
-  standard: 1.75,
-  halloween: 1.75,
-  midnight: 1.5,
-  contrast: 2.25,
+const WEIGHT: Record<IconSet, IconWeight> = {
+  standard: "duotone",
+  halloween: "duotone",
+  midnight: "light",
+  contrast: "bold",
 };
 export const IconSetContext = createContext<IconSet>("standard");
 
@@ -170,15 +178,42 @@ export function Icon({
   className?: string;
 }) {
   const set = useContext(IconSetContext);
-  const Component = OVERRIDES[set][name] ?? ICONS[name] ?? Ghost;
+  const glyph = OVERRIDES[set][name] ?? ICONS[name] ?? ICONS.ghost;
+  const Component = glyph.icon;
+  const weight =
+    name === "loader" || name === "go" ? "bold" : WEIGHT[set];
   return (
     <Component
-      size={set === "contrast" ? size + 1 : size}
-      strokeWidth={STROKE[set]}
+      size={set === "contrast" ? size + 2 : size + 1}
+      weight={weight}
       aria-hidden="true"
       focusable="false"
+      data-glyph={glyph.id}
+      data-weight={weight}
       className={className ? `icon ${className}` : "icon"}
     />
+  );
+}
+
+/** Custom brand mark: a ghost whose eyes are two commits joined by a merge curve. */
+export function Logo({ size = 20 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+      className="logo"
+    >
+      <path
+        d="M4.6 20.6V11.1a7.4 7.4 0 0 1 14.8 0v9.5l-2.45-1.85-2.48 1.85L12 18.75l-2.47 1.85-2.48-1.85z"
+        className="logo-body"
+      />
+      <path d="M9.4 10.6c0 3 5.2 3 5.2 0" className="logo-branch" />
+      <circle cx="9.4" cy="10.4" r="1.55" className="logo-eye" />
+      <circle cx="14.6" cy="10.4" r="1.55" className="logo-eye" />
+    </svg>
   );
 }
 
@@ -192,7 +227,7 @@ export function NumberTicker({ value, className }: { value: number; className?: 
       return;
     }
     const controls = animate(0, value, {
-      duration: Math.min(1.2, 0.4 + value / 200),
+      duration: t(Math.min(1.2, 0.4 + value / 200)),
       ease: [0.16, 1, 0.3, 1],
       onUpdate: (latest) => setShown(Math.round(latest)),
     });

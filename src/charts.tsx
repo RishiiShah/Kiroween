@@ -1,3 +1,4 @@
+import { t } from "./ui";
 import { bin, max } from "d3-array";
 import { scaleBand, scaleLinear, scaleTime } from "d3-scale";
 import { arc, area, curveMonotoneX, pie } from "d3-shape";
@@ -29,7 +30,7 @@ export function useTip() {
       style={{ left: tip.x, top: tip.y }}
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.12 }}
+      transition={{ duration: t(0.12)}}
       aria-hidden="true"
     >
       {tip.text}
@@ -96,7 +97,7 @@ export function Donut({
                   className={`donut-slice ${slice.data.className}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ delay: 0.08 * index, duration: 0.45, ease: EASE }}
+                  transition={{ delay: t(0.08 * index), duration: t(0.45), ease: EASE }}
                 >
                   <title>{`${slice.data.label}: ${slice.data.value}`}</title>
                 </motion.path>
@@ -183,7 +184,7 @@ export function BranchAgeChart({
                 className="bar"
                 initial={{ width: 0 }}
                 animate={{ width: Math.max(2, x(branch.days) - left) }}
-                transition={{ delay: 0.05 * index, duration: 0.6, ease: EASE }}
+                transition={{ delay: t(0.05 * index), duration: t(0.6), ease: EASE }}
               >
                 <title>{`${branch.name}: tip ${branch.days} days old`}</title>
               </motion.rect>
@@ -288,7 +289,7 @@ export function AgeHistogram({
                     className={`hist kind-${kind}`}
                     initial={{ y: height - bottom, height: 0 }}
                     animate={{ y: base, height: Math.max(0, h - 1) }}
-                    transition={{ delay: 0.05 * index, duration: 0.55, ease: EASE }}
+                    transition={{ delay: t(0.05 * index), duration: t(0.55), ease: EASE }}
                   >
                     <title>{`${bucket.label}: ${value} ${kind === "pull" ? "pull requests" : "issues"}`}</title>
                   </motion.rect>
@@ -383,7 +384,7 @@ export function CommitTimeline({
           className="timeline-area"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: t(0.8)}}
         />
         {times.map((time, index) => (
           <motion.circle
@@ -394,7 +395,7 @@ export function CommitTimeline({
             className="timeline-dot"
             initial={{ opacity: 0, scale: 0 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.15 + index * 0.025, duration: 0.3 }}
+            transition={{ delay: t(0.15 + index * 0.025), duration: t(0.3)}}
             onMouseMove={(event) =>
               tip.show(
                 event,
@@ -463,7 +464,7 @@ export function CalendarHeatmap({ weeks }: { weeks: Week[] }) {
             key={week.week}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: column * 0.008, duration: 0.3 }}
+            transition={{ delay: t(column * 0.008), duration: t(0.3)}}
           >
             {week.days.map((count, day) => {
               const date = new Date(Date.parse(week.week) + day * 86400000);
@@ -546,7 +547,7 @@ export function ReleaseTimeline({ releases, observedAt }: { releases: Release[];
               key={release.tag}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 * index, duration: 0.35, ease: EASE }}
+              transition={{ delay: t(0.05 * index), duration: t(0.35), ease: EASE }}
               className={`release ${release.prerelease ? "is-pre" : ""}`}
               onMouseMove={(event) =>
                 tip.show(
@@ -616,7 +617,7 @@ export function RankBars({ rows, unit, label }: { rows: RankRow[]; unit: string;
               className="rank-fill"
               initial={{ width: 0 }}
               animate={{ width: `${(row.value / peak) * 100}%` }}
-              transition={{ delay: index * 0.03, duration: 0.6, ease: EASE }}
+              transition={{ delay: t(index * 0.03), duration: t(0.6), ease: EASE }}
             />
           </span>
           <span className="rank-value" title={`${row.value.toLocaleString()} ${unit}`}>
@@ -696,7 +697,7 @@ export function CodeFrequency({ weeks }: { weeks: CodeWeek[] }) {
           initial={{ opacity: 0, scaleY: 0 }}
           animate={{ opacity: 1, scaleY: 1 }}
           style={{ originY: `${y(0)}px` }}
-          transition={{ duration: 0.7, ease: EASE }}
+          transition={{ duration: t(0.7), ease: EASE }}
         />
         <motion.path
           d={dels(data) ?? ""}
@@ -704,7 +705,7 @@ export function CodeFrequency({ weeks }: { weeks: CodeWeek[] }) {
           initial={{ opacity: 0, scaleY: 0 }}
           animate={{ opacity: 1, scaleY: 1 }}
           style={{ originY: `${y(0)}px` }}
-          transition={{ duration: 0.7, delay: 0.1, ease: EASE }}
+          transition={{ duration: t(0.7), delay: t(0.1), ease: EASE }}
         />
         {point && (
           <g className="freq-guide">
@@ -780,7 +781,7 @@ export function PunchCard({ punches }: { punches: Punch[] }) {
                 className="punch-dot"
                 initial={{ r: 0 }}
                 animate={{ r: r(punch.count) }}
-                transition={{ delay: (punch.day * 24 + punch.hour) * 0.002, duration: 0.4, ease: EASE }}
+                transition={{ delay: t((punch.day * 24 + punch.hour) * 0.002), duration: t(0.4), ease: EASE }}
                 style={{ opacity: 0.35 + 0.65 * (punch.count / peak) }}
                 pointerEvents="none"
               />
